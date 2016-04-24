@@ -1,6 +1,14 @@
 //FEATURES todo list
-// reset counters command
-// display dev info
+// - reset counters command
+// - display dev info
+// - handle correct RTC startup
+// - add encoder
+// - add buttons
+// - pressure sensors
+// - valves management
+// - add wifi
+// - water sensor (wired or wireless)
+// - armed/disarmed mode
 
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
