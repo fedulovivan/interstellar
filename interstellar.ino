@@ -9,6 +9,7 @@
 // - add wifi
 // - water sensor (wired or wireless)
 // - armed/disarmed mode
+// - decrease EEPROM write frequency
 
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
