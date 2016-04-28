@@ -10,7 +10,7 @@
 // - water sensor (wired or wireless)
 // - armed/disarmed mode
 // - decrease EEPROM write frequency
-// - fix daily reset issue when item is switched off at 00:00
+// - fix daily reset issue when unit is switched off at 00:00
 
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
