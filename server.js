@@ -1,12 +1,15 @@
-var http = require('http'),
-	server = http.createServer(function(req, res){
-		//console.log(arguments);
-		res.end('Hi!1:' + req.url);
-	});
+var express = require('express');
+var app = express();
 
-server.listen(8080, function(){
-	console.log('listening 8080..');
-});	
+app.get('/', function (req, res) {
+  res.send(new Date);
+  console.log(req.query, new Date);
+
+});
+
+app.listen(8080, function () {
+  console.log('listening 8080..');
+});
 
 //1. connect to wifi
 //2. set baudrate

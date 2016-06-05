@@ -59,6 +59,8 @@ tmElements_t tm;
 
 LiquidCrystal_I2C lcd(I2C_ADDR, En_pin, Rw_pin, Rs_pin, D4_pin, D5_pin, D6_pin, D7_pin);
 
+int cnt = 0;
+
 void setup()
 {
   
@@ -86,9 +88,9 @@ void setup()
   }
  
   // init lcd
-  lcd.begin(16,2);
+  lcd.begin(20,4);
   lcd.setBacklightPin(BACKLIGHT_PIN, POSITIVE);
-  lcd.setBacklight(LOW);
+  lcd.setBacklight(HIGH);
 
   // present some welcome screen
   lcd.home();
@@ -109,7 +111,7 @@ void loop()
   
   updateLcd();
 
-  delay(100);
+  //delay(100);
 }
 
 void resetDailyCounters() {
@@ -229,44 +231,52 @@ void tickMeter(byte channel) {
 
 void updateLcd() {
 
-  // time
-  lcd.setCursor(11, 0);
-  printZeroPadded(tm.Hour);
-  lcd.write((tm.Second % 2) == 0 ? ':' : ' '); // blinking
-  printZeroPadded(tm.Minute);
-
+  lcd.setCursor(2, 0);
+  lcd.print("Day  Total");
+  
   // hot dialy/total 
-  lcd.setCursor(0, 0);
+  lcd.setCursor(0, 1);
+  lcd.print("H ");
   lcd.print(counters[DAILY_HOT] * IMP_WEIGHT, 2);
-  lcd.write('/');
+  lcd.write(' ');
   lcd.print(counters[TOTAL_HOT] * IMP_WEIGHT, 2);
 
   // cold dialy/total
-  lcd.setCursor(0, 1);
+  lcd.setCursor(0, 2);
+  lcd.print("C ");
   lcd.print(counters[DAILY_COLD] * IMP_WEIGHT, 2);
-  lcd.write('/');
+  lcd.write(' ');
   lcd.print(counters[TOTAL_COLD] * IMP_WEIGHT, 2);
 
   // meter states hot/cold
-  lcd.setCursor(11, 1);
+  lcd.setCursor(16, 1);
   lcd.print(stateToLabel(lastMeterState[HOT]));
-  lcd.write(',');
+  lcd.setCursor(16, 2);
   lcd.print(stateToLabel(lastMeterState[COLD]));
   
+  // time
+  char dot = (tm.Second % 2) == 0 ? ':' : ' '; // blinking
+  lcd.setCursor(15, 3);
+  printZeroPadded(tm.Hour);
+  lcd.write(dot); 
+  printZeroPadded(tm.Minute);
+
+  //lcd.setCursor(0, 3);
+  //lcd.print(++cnt);
 }
 
 char* stateToLabel(byte state) {
   switch(state) {
     case SENSOR_ST_OPEN:
-      return "OP";
+      return "Open";
     case SENSOR_ST_CLOSE:
-      return "CL";
+      return "Clsd";
     case SENSOR_ST_SHORT:
-      return "SH";
+      return "Shrt";
     case SENSOR_ST_LOST:
-      return "LS";
+      return "Lost";
     case SENSOR_ST_UNDETERMINATE:
-      return "UD";
+      return "Undt";
   }
 }
 
