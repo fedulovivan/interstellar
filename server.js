@@ -3,8 +3,8 @@ var app = express();
 
 app.get('/', function (req, res) {
   res.send(new Date);
-  console.log(req.query, new Date);
-
+  console.log(new Date);
+  console.log(req.originalUrl);
 });
 
 app.listen(8080, function () {
