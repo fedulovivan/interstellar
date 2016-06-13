@@ -1,7 +1,10 @@
-Upload new flash to ESP:
-./esptool.py --baud 9600 --port /dev/cu.wchusbserial1410 write_flash ~/Desktop/ESP_8266_v0.9.2.2\ AT\ Firmware.bin
+Flash esp8266 with nodemcu firmware:
+./esptool.py --baud 115200 --port /dev/cu.wchusbserial1410 write_flash 0x0000 ~/Downloads/nodemcu-master-8-modules-2016-06-12-12-58-18-integer.bin
 
-Connect to network:
+Build nodemcu firmware online:
+http://nodemcu-build.com
+
+Regular AT commands to make http request:
 
 // turn itself to client
 AT+CWMODE=1
@@ -14,6 +17,9 @@ Sending HTTP GET request:
 // set single conn mode and initiate single connection
 AT+CIPMUX=0
 AT+CIPSTART="TCP","192.168.88.252",8080
+
+//
+AT+CIPSTATUS
 
 // tell server get request size, including \r\n characters
 AT+CIPSEND=62

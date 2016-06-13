@@ -11,3 +11,5 @@
 - decrease EEPROM write frequency
 - fix daily reset issue when unit is being powered off when time is 00:00
 - 433 mhz remote
+- connect sensors and valves using rj45 sockets
+- publish to https://thingspeak.com
