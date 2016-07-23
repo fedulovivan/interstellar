@@ -1,6 +1,9 @@
 #include <LiquidCrystal_I2C.h>
-#include <DS1307RTC.h>
 #include <LCD.h>
+
+#include <DS3232RTC.h>        //http://github.com/JChristensen/DS3232RTC
+#include <Time.h>             //http://playground.arduino.cc/Code/Time
+#include <Wire.h>             //http://arduino.cc/en/Reference/Wire
 
 #define I2C_ADDR 0x27 
 
@@ -39,9 +42,6 @@ byte minutesValid[] = {0, 59};
 // lcd init
 LiquidCrystal_I2C lcd(I2C_ADDR, En_pin, Rw_pin, Rs_pin, D4_pin, D5_pin, D6_pin, D7_pin);
 
-// time read from RTC module
-tmElements_t tm;
-
 void setup()
 {
  
@@ -56,13 +56,11 @@ void setup()
 
   attachInterrupt(digitalPinToInterrupt(ENC_CLK_PIN), handleEncoderClockInterrupt, CHANGE);
 
+  setSyncProvider(RTC.get);
 }
 
 void loop()
 {
-  
-  RTC.read(tm);
-
   encoderSwitchState = digitalRead(ENC_SW_PIN);
   
   // switch modes in loop
@@ -108,6 +106,11 @@ void updateEditedValue()
 
   if (currentMode == MODE_NORMAL) return; // ignore if not in edit mode
 
+  time_t tSet;
+  
+  tmElements_t tm;
+  RTC.read(tm);
+  
   if (currentMode == MODE_EDIT_HOUR) {
     
     if(editedValue == EDIT_UNDEF) editedValue = tm.Hour;
@@ -119,7 +122,9 @@ void updateEditedValue()
     }
     
     tm.Hour = editedValue;
-    RTC.write(tm);
+    tSet = makeTime(tm);
+    RTC.set(tSet);
+    setTime(tSet);
     
   } else if (currentMode == MODE_EDIT_MINUTE) {
 
@@ -132,7 +137,10 @@ void updateEditedValue()
     }
     
     tm.Minute = editedValue;
-    RTC.write(tm);
+    tSet = makeTime(tm);
+    RTC.set(tSet);
+    setTime(tSet);
+    
   }
 }
 
@@ -149,13 +157,18 @@ void updateLcd() {
   }
   lcd.print("      ");
 
+//  int c = RTC.temperature();
+//  lcd.setCursor(12, 2);
+//  lcd.write(c);
+//  lcd.write("C");
+
   // display time
   lcd.setCursor(12, 3);
-  printZeroPadded(tm.Hour);
+  printZeroPadded(hour());
   lcd.write(':'); 
-  printZeroPadded(tm.Minute);
+  printZeroPadded(minute());
   lcd.write(':'); 
-  printZeroPadded(tm.Second);
+  printZeroPadded(second());
   
 }
 

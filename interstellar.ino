@@ -1,9 +1,12 @@
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
 #include <Time.h>
-#include <DS1307RTC.h>
+#include <DS3232RTC.h> //http://github.com/JChristensen/DS3232RTC
 #include <LCD.h>
 #include <EEPROM.h>
+#include <SoftwareSerial.h>
+
+SoftwareSerial espSerial(5, 6); // RX, TX
 
 #define DEBUG 1
 
@@ -59,7 +62,9 @@ tmElements_t tm;
 
 LiquidCrystal_I2C lcd(I2C_ADDR, En_pin, Rw_pin, Rs_pin, D4_pin, D5_pin, D6_pin, D7_pin);
 
-int cnt = 0;
+// how often values sent to cloud
+unsigned long previousMillis = 0;
+const long interval = 60000;
 
 void setup()
 {
@@ -68,7 +73,11 @@ void setup()
 //  Serial.begin(9600);
 //#endif
 
-  // init analig pins meters reeds are connected
+  espSerial.begin(9600);
+
+  setSyncProvider(RTC.get);
+
+  // init analog pins, meters reeds are connected to
   pinMode(HOT_METER_PIN,  INPUT);
   pinMode(COLD_METER_PIN, INPUT);
 
@@ -88,7 +97,7 @@ void setup()
   }
  
   // init lcd
-  lcd.begin(20,4);
+  lcd.begin(20, 4);
   lcd.setBacklightPin(BACKLIGHT_PIN, POSITIVE);
   lcd.setBacklight(HIGH);
 
@@ -98,6 +107,7 @@ void setup()
   writeDotWithDelay(3);
   
   lcd.clear();
+
 }
 
 void loop()
@@ -111,7 +121,27 @@ void loop()
   
   updateLcd();
 
-  //delay(100);
+  // send statitistics
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+    espSerial.print(  "field1=" + String(counters[TOTAL_HOT]  * IMP_WEIGHT));
+    espSerial.print( "&field2=" + String(counters[TOTAL_COLD] * IMP_WEIGHT));
+    espSerial.print( "&field3=" + String(counters[DAILY_HOT]  * IMP_WEIGHT));
+    espSerial.print( "&field4=" + String(counters[DAILY_COLD] * IMP_WEIGHT));
+    espSerial.print("\r");
+  }
+
+  // read all available bytes from serial but dump only first 4 to lcd
+  lcd.setCursor(16, 0);
+  int bytes = espSerial.available();
+  if (bytes) {
+      for(int i = 0; i < bytes; i++) {
+        char readChar = espSerial.read();
+        if(i < 4) lcd.write(readChar);
+      }
+   }
+  
 }
 
 void resetDailyCounters() {
@@ -254,15 +284,13 @@ void updateLcd() {
   lcd.setCursor(16, 2);
   lcd.print(stateToLabel(lastMeterState[COLD]));
   
-  // time
-  char dot = (tm.Second % 2) == 0 ? ':' : ' '; // blinking
-  lcd.setCursor(15, 3);
-  printZeroPadded(tm.Hour);
-  lcd.write(dot); 
-  printZeroPadded(tm.Minute);
-
-  //lcd.setCursor(0, 3);
-  //lcd.print(++cnt);
+  // display time
+  lcd.setCursor(12, 3);
+  printZeroPadded(hour());
+  lcd.write(':'); 
+  printZeroPadded(minute());
+  lcd.write(':'); 
+  printZeroPadded(second());
 }
 
 char* stateToLabel(byte state) {

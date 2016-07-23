@@ -1,13 +1,12 @@
 var express = require('express');
-var bodyParser = require('body-parser');
 var app = express();
-app.use(bodyParser.json());
+//var bodyParser = require('body-parser');
+//app.use(bodyParser.json());
 
-app.post('/', function (req, res) {
-  res.send("OK"); // have to send response
+app.get('/', function (req, res) {
+  res.send("OK");
   console.log(new Date);
   console.log(req.query);
-  console.log(req.body);
 });
 
 app.listen(8080, function () {
