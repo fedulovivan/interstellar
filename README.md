@@ -4,6 +4,9 @@ Flash esp8266 with nodemcu firmware:
 Build nodemcu firmware online:
 http://nodemcu-build.com
 
+uart console
+sudo screen /dev/cu.wchusbserial1410 115200
+
 Regular AT commands to make http request:
 
 // turn itself to client

@@ -1,12 +1,13 @@
-#include <LiquidCrystal_I2C.h>
-#include <Wire.h>
-#include <Time.h>
+#include <Time.h> // https://github.com/PaulStoffregen/Time
+#include <TimeLib.h> // https://github.com/PaulStoffregen/Time
+#include <LiquidCrystal_I2C.h> //https://github.com/fdebrabander/Arduino-LiquidCrystal-I2C-library
+#include <Wire.h> 
 #include <DS3232RTC.h> //http://github.com/JChristensen/DS3232RTC
-#include <LCD.h>
+#include <LCD.h> //https://bitbucket.org/fmalpartida/new-liquidcrystal
 #include <EEPROM.h>
 #include <SoftwareSerial.h>
 
-SoftwareSerial espSerial(5, 6); // RX, TX
+SoftwareSerial espSerial(5, 6); // RX, TX, inverse_logic
 
 #define DEBUG 1
 
@@ -57,23 +58,37 @@ byte lastMeterState[2];
 // last remembered day to rud dialy reset
 byte lastDialyReset;
 
-// time read from RTC module
-tmElements_t tm;
-
 LiquidCrystal_I2C lcd(I2C_ADDR, En_pin, Rw_pin, Rs_pin, D4_pin, D5_pin, D6_pin, D7_pin);
 
 // how often values sent to cloud
 unsigned long previousMillis = 0;
 const long interval = 60000;
 
+byte espSerialStarted = 0;
+
+// beeping
+const byte beeperPin = 13;
+
+const int beepOn = 50;   // ms
+const int beepOff = 100; // ms
+
+byte beeperGlabalState = LOW;
+byte beepsRequestedGlobal = 0;
+
+unsigned long lastBeeperMillis = 0;
+unsigned long lastSubbeepMillis = 0;
+
 void setup()
 {
+
+  //pinMode(5, OUTPUT);
+  //digitalWrite(5, LOW);
   
 //#ifdef DEBUG
 //  Serial.begin(9600);
 //#endif
 
-  espSerial.begin(9600);
+// espSerial.begin(9600);
 
   setSyncProvider(RTC.get);
 
@@ -92,9 +107,9 @@ void setup()
 
   // read initial value for dialy reset detection
   // TODO monitor correct RTC startup
-  if(RTC.read(tm)) {
-    lastDialyReset = tm.Day;
-  }
+  //if(RTC.read(tm)) {
+    lastDialyReset = day();
+  //}
  
   // init lcd
   lcd.begin(20, 4);
@@ -112,7 +127,13 @@ void setup()
 
 void loop()
 {
-  RTC.read(tm);
+  //RTC.read(tm);
+
+  // delay serial startup, give time for esp to start
+  if (!espSerialStarted && millis() > 10000) {
+      espSerial.begin(9600);
+      espSerialStarted = 1;
+  }
 
   handleMeterStateChange(HOT,  HOT_METER_PIN);
   handleMeterStateChange(COLD, COLD_METER_PIN);
@@ -121,36 +142,43 @@ void loop()
   
   updateLcd();
 
-  // send statitistics
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= interval) {
-    previousMillis = currentMillis;
-    espSerial.print(  "field1=" + String(counters[TOTAL_HOT]  * IMP_WEIGHT));
-    espSerial.print( "&field2=" + String(counters[TOTAL_COLD] * IMP_WEIGHT));
-    espSerial.print( "&field3=" + String(counters[DAILY_HOT]  * IMP_WEIGHT));
-    espSerial.print( "&field4=" + String(counters[DAILY_COLD] * IMP_WEIGHT));
-    espSerial.print("\r");
-  }
+  beep(0); // use beep with 0 cnt to track surrent state only
+  digitalWrite(beeperPin, beeperGlabalState);
 
-  // read all available bytes from serial but dump only first 4 to lcd
-  lcd.setCursor(16, 0);
-  int bytes = espSerial.available();
-  if (bytes) {
-      for(int i = 0; i < bytes; i++) {
-        char readChar = espSerial.read();
-        if(i < 4) lcd.write(readChar);
-      }
-   }
+  if (espSerialStarted) {
+    
+    // send statitistics
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousMillis >= interval) {
+      previousMillis = currentMillis;
+      espSerial.print(  "field1=" + String(counters[TOTAL_HOT]  * IMP_WEIGHT));
+      espSerial.print( "&field2=" + String(counters[TOTAL_COLD] * IMP_WEIGHT));
+      espSerial.print( "&field3=" + String(counters[DAILY_HOT]  * IMP_WEIGHT));
+      espSerial.print( "&field4=" + String(counters[DAILY_COLD] * IMP_WEIGHT));
+      espSerial.print("\r");
+    }
+  
+    // read all available bytes from serial but dump only first 4 to lcd
+    lcd.setCursor(16, 0);
+    int bytes = espSerial.available();
+    if (bytes) {
+        for(int i = 0; i < bytes; i++) {
+          char readChar = espSerial.read();
+          if(i < 4) lcd.write(readChar);
+        }
+     }
+     
+  }
   
 }
 
 void resetDailyCounters() {
-  if(lastDialyReset != tm.Day) {
+  if(lastDialyReset != day()) {
     counters[DAILY_HOT] = 0;
     eepromWriteInt(DAILY_HOT * 2, 0);
     counters[DAILY_COLD] = 0;
     eepromWriteInt(DAILY_COLD * 2, 0);
-    lastDialyReset = tm.Day;
+    lastDialyReset = day();
   }
 }
 
@@ -246,11 +274,18 @@ void meterStateChange(byte channel, int state) {
 void tickMeter(byte channel) {
 
   if (channel == HOT) {
+
+    beep(3); // beep 3 times to indicate consumption of 10 liters of hot water
+    
     counters[TOTAL_HOT]++;
     counters[DAILY_HOT]++;
     eepromWriteInt(TOTAL_HOT * 2, counters[TOTAL_HOT]);
     eepromWriteInt(DAILY_HOT * 2, counters[DAILY_HOT]);
   } else if (channel == COLD) {
+
+
+    beep(1); // beep 1 time to indicate consumption of 10 liters of cold water
+    
     counters[TOTAL_COLD]++;
     counters[DAILY_COLD]++;
     eepromWriteInt(TOTAL_COLD * 2, counters[TOTAL_COLD]);
@@ -293,7 +328,7 @@ void updateLcd() {
   printZeroPadded(second());
 }
 
-char* stateToLabel(byte state) {
+char* stateToLabel(int state) {
   switch(state) {
     case SENSOR_ST_OPEN:
       return "Open";
@@ -305,6 +340,26 @@ char* stateToLabel(byte state) {
       return "Lost";
     case SENSOR_ST_UNDETERMINATE:
       return "Undt";
+  }
+}
+
+
+void beep(int cnt) {
+  if (beepsRequestedGlobal > 0) {
+
+      unsigned long currentMillis = millis();
+
+      if (beeperGlabalState == LOW && currentMillis - lastSubbeepMillis >= beepOff)  {
+           beeperGlabalState = HIGH;
+           lastSubbeepMillis = currentMillis;
+      } else if (beeperGlabalState == HIGH && currentMillis - lastSubbeepMillis >= beepOn)  {
+           beeperGlabalState = LOW;
+           lastSubbeepMillis = currentMillis;
+           beepsRequestedGlobal--;
+      }
+    
+  } else {
+    beepsRequestedGlobal = cnt;
   }
 }
 
