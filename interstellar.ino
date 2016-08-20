@@ -7,9 +7,7 @@
 #include <EEPROM.h>
 #include <SoftwareSerial.h>
 
-SoftwareSerial espSerial(5, 6); // RX, TX, inverse_logic
-
-#define DEBUG 1
+SoftwareSerial espSerial(5, 6); // RX, TX
 
 // pcf8574 address
 #define I2C_ADDR 0x27
@@ -55,22 +53,22 @@ unsigned int counters[] = {0, 0, 0, 0};
 // last remembered states of each meter sensor
 byte lastMeterState[2];
 
-// last remembered day to rud dialy reset
+// last remembered day to run dialy reset
 byte lastDialyReset;
 
 LiquidCrystal_I2C lcd(I2C_ADDR, En_pin, Rw_pin, Rs_pin, D4_pin, D5_pin, D6_pin, D7_pin);
 
-// how often values sent to cloud
-unsigned long previousMillis = 0;
-const long interval = 60000;
+// how often values are periodically sent to cloud
+#define PERIODIC_SEND_STAT_INTERVAL 600000
+unsigned long lastSentStat = 0;
 
+// flag indicating if esp uart is started
 byte espSerialStarted = 0;
 
-// beeping
-const byte beeperPin = 13;
-
-const int beepOn = 50;   // ms
-const int beepOff = 100; // ms
+// beeping timings and pin
+#define BEEPER_PIN 13
+#define BEEP_ON 50   // ms
+#define BEEP_OFF 100 // ms
 
 byte beeperGlabalState = LOW;
 byte beepsRequestedGlobal = 0;
@@ -78,19 +76,46 @@ byte beepsRequestedGlobal = 0;
 unsigned long lastBeeperMillis = 0;
 unsigned long lastSubbeepMillis = 0;
 
+// buttons
+#define BTN_01_PIN 12
+#define BTN_02_PIN 11
+#define BTN_03_PIN 10
+#define BTN_04_PIN 9
+
+// valves
+#define HOT_VALVE_PIN 8
+#define COLD_VALVE_PIN 7
+
+// valves are configured closed on startup
+byte hotValveState = HIGH;
+byte coldValveState = HIGH;
+
+// last remembered button state to detect state change
+byte btn01prev = LOW;
+byte btn02prev = LOW;
+byte btn03prev = LOW;
+byte btn04prev = LOW;
+
+#define METER_READ_INTERVAL 1000
+unsigned long lastMeterRead = 0;
+
 void setup()
 {
-
-  //pinMode(5, OUTPUT);
-  //digitalWrite(5, LOW);
-  
-//#ifdef DEBUG
-//  Serial.begin(9600);
-//#endif
-
-// espSerial.begin(9600);
-
   setSyncProvider(RTC.get);
+
+  // button pins setup
+  pinMode(BTN_01_PIN, INPUT);
+  pinMode(BTN_02_PIN, INPUT);
+  pinMode(BTN_03_PIN, INPUT);
+  pinMode(BTN_04_PIN, INPUT);
+
+  // valve pins setup
+  pinMode(HOT_VALVE_PIN, OUTPUT);
+  pinMode(COLD_VALVE_PIN, OUTPUT);
+
+  // update with unitial values
+  updateHotValve();
+  updateColdValve(); 
 
   // init analog pins, meters reeds are connected to
   pinMode(HOT_METER_PIN,  INPUT);
@@ -107,9 +132,7 @@ void setup()
 
   // read initial value for dialy reset detection
   // TODO monitor correct RTC startup
-  //if(RTC.read(tm)) {
-    lastDialyReset = day();
-  //}
+  lastDialyReset = day();
  
   // init lcd
   lcd.begin(20, 4);
@@ -127,37 +150,56 @@ void setup()
 
 void loop()
 {
-  //RTC.read(tm);
-
+  
   // delay serial startup, give time for esp to start
   if (!espSerialStarted && millis() > 10000) {
       espSerial.begin(9600);
       espSerialStarted = 1;
   }
 
-  handleMeterStateChange(HOT,  HOT_METER_PIN);
-  handleMeterStateChange(COLD, COLD_METER_PIN);
+  // read meters
+  if (millis() - lastMeterRead >= METER_READ_INTERVAL) {
+      handleMeterStateChange(HOT,  HOT_METER_PIN);
+      handleMeterStateChange(COLD, COLD_METER_PIN);
+      lastMeterRead = millis();
+  }
 
+  // reading buttons
+  int btn01 = digitalRead(BTN_01_PIN);
+  int btn02 = digitalRead(BTN_02_PIN);
+  int btn03 = digitalRead(BTN_03_PIN);
+  int btn04 = digitalRead(BTN_04_PIN);
+
+  // updating valves state on request
+  if (btn01 != btn01prev) {
+      if (btn01 == HIGH) {
+          hotValveState = !hotValveState;
+      }
+      btn01prev = btn01;
+  }
+  if (btn02 != btn02prev) {
+      if (btn02 == HIGH) {
+          coldValveState = !coldValveState;
+      }
+      btn02prev = btn02;
+  }
+
+  // update output signals
+  updateHotValve();
+  updateColdValve();  
+
+  // reset dialy counters
   resetDailyCounters();
   
+  // update lcd
   updateLcd();
 
-  beep(0); // use beep with 0 cnt to track surrent state only
-  digitalWrite(beeperPin, beeperGlabalState);
+  // use beep with 0 cnt to track surrent state only
+  beep(0);
+  digitalWrite(BEEPER_PIN, beeperGlabalState);
 
+  // read data from esp uart
   if (espSerialStarted) {
-    
-    // send statitistics
-    unsigned long currentMillis = millis();
-    if (currentMillis - previousMillis >= interval) {
-      previousMillis = currentMillis;
-      espSerial.print(  "field1=" + String(counters[TOTAL_HOT]  * IMP_WEIGHT));
-      espSerial.print( "&field2=" + String(counters[TOTAL_COLD] * IMP_WEIGHT));
-      espSerial.print( "&field3=" + String(counters[DAILY_HOT]  * IMP_WEIGHT));
-      espSerial.print( "&field4=" + String(counters[DAILY_COLD] * IMP_WEIGHT));
-      espSerial.print("\r");
-    }
-  
     // read all available bytes from serial but dump only first 4 to lcd
     lcd.setCursor(16, 0);
     int bytes = espSerial.available();
@@ -166,10 +208,35 @@ void loop()
           char readChar = espSerial.read();
           if(i < 4) lcd.write(readChar);
         }
-     }
-     
+     }    
   }
   
+  // send statistics immediately and then periodically
+  if (lastSentStat == 0 || millis() - lastSentStat >= PERIODIC_SEND_STAT_INTERVAL) {
+      sendStat();
+  }
+  
+}
+
+void sendStat() {
+
+    if (!espSerialStarted) return;
+
+    espSerial.print(  "field1=" + String(counters[TOTAL_HOT]  * IMP_WEIGHT));
+    espSerial.print( "&field2=" + String(counters[TOTAL_COLD] * IMP_WEIGHT));
+    espSerial.print( "&field3=" + String(counters[DAILY_HOT]  * IMP_WEIGHT));
+    espSerial.print( "&field4=" + String(counters[DAILY_COLD] * IMP_WEIGHT));
+    espSerial.print("\r");
+
+    lastSentStat = millis();
+}
+
+void updateHotValve() {
+  digitalWrite(HOT_VALVE_PIN, hotValveState);
+}
+
+void updateColdValve() {
+  digitalWrite(COLD_VALVE_PIN, coldValveState);
 }
 
 void resetDailyCounters() {
@@ -187,29 +254,12 @@ void handleMeterStateChange(byte channel, int pinNum) {
   if (state != lastMeterState[channel]) {
     meterStateChange(channel, state);
     lastMeterState[channel] = state;
-
-//#ifdef DEBUG
-//  Serial.println("st_ch");
-//  Serial.print("ch=");
-//  Serial.print(channel, DEC);
-//  Serial.print(",pin=");
-//  Serial.println(pinNum, DEC);
-//#endif
-
   }
 }
 
 int readMeter(int pinNum) {
   
   int meanVal = analogReadMean(pinNum);
-
-//#ifdef DEBUG
-//  Serial.println("rd_mt");
-//  Serial.print("pin=");
-//  Serial.print(pinNum, DEC);
-//  Serial.print(",val=");
-//  Serial.println(meanVal, DEC);  
-//#endif
 
   if(meanVal < SENSOR_TH_CLOSE - TH_SENS) {
     return SENSOR_ST_SHORT;
@@ -225,10 +275,11 @@ int readMeter(int pinNum) {
 }
 
 int analogReadMean(int pinNum) {
-   byte samples = 10;
+   byte samples = 5;
    byte i = 0;
    int total = 0;
    while(i++ < samples) {
+     delay(5);
      total += analogRead(pinNum);
    }
    return total/samples;
@@ -262,13 +313,9 @@ void printZeroPadded(int num) {
 }
 
 void meterStateChange(byte channel, int state) {
-  
   if (state == SENSOR_ST_CLOSE) {
     tickMeter(channel); // tick +10 liters
   }
-  
-  // TODO
-  // implement valves closing handling
 }
 
 void tickMeter(byte channel) {
@@ -281,6 +328,7 @@ void tickMeter(byte channel) {
     counters[DAILY_HOT]++;
     eepromWriteInt(TOTAL_HOT * 2, counters[TOTAL_HOT]);
     eepromWriteInt(DAILY_HOT * 2, counters[DAILY_HOT]);
+
   } else if (channel == COLD) {
 
 
@@ -290,8 +338,10 @@ void tickMeter(byte channel) {
     counters[DAILY_COLD]++;
     eepromWriteInt(TOTAL_COLD * 2, counters[TOTAL_COLD]);
     eepromWriteInt(DAILY_COLD * 2, counters[DAILY_COLD]);
+
   }
-  
+
+  sendStat();
 }
 
 void updateLcd() {
@@ -346,18 +396,15 @@ char* stateToLabel(int state) {
 
 void beep(int cnt) {
   if (beepsRequestedGlobal > 0) {
-
       unsigned long currentMillis = millis();
-
-      if (beeperGlabalState == LOW && currentMillis - lastSubbeepMillis >= beepOff)  {
+      if (beeperGlabalState == LOW && currentMillis - lastSubbeepMillis >= BEEP_OFF)  {
            beeperGlabalState = HIGH;
            lastSubbeepMillis = currentMillis;
-      } else if (beeperGlabalState == HIGH && currentMillis - lastSubbeepMillis >= beepOn)  {
+      } else if (beeperGlabalState == HIGH && currentMillis - lastSubbeepMillis >= BEEP_ON)  {
            beeperGlabalState = LOW;
            lastSubbeepMillis = currentMillis;
            beepsRequestedGlobal--;
       }
-    
   } else {
     beepsRequestedGlobal = cnt;
   }
