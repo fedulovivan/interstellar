@@ -48,6 +48,14 @@ SoftwareSerial espSerial(5, 6); // RX, TX
 #define HOT  0
 #define COLD 1
 
+// system goes to armed mode if no motion detected for last 30 mins
+#define ARMED_INTERVAL 1800000
+byte globalArmed = false;
+byte globalArmedLast = false;
+
+#define PIR_PIN 4
+long lastPirMillis = 0;
+
 unsigned int counters[] = {0, 0, 0, 0};
 
 // last remembered states of each meter sensor
@@ -58,8 +66,8 @@ byte lastDialyReset;
 
 LiquidCrystal_I2C lcd(I2C_ADDR, En_pin, Rw_pin, Rs_pin, D4_pin, D5_pin, D6_pin, D7_pin);
 
-// how often values are periodically sent to cloud
-#define PERIODIC_SEND_STAT_INTERVAL 600000
+// how often values are periodically sent to cloud, 30 mins
+#define PERIODIC_SEND_STAT_INTERVAL 1800000
 unsigned long lastSentStat = 0;
 
 // flag indicating if esp uart is started
@@ -69,8 +77,11 @@ byte espSerialStarted = 0;
 #define BEEPER_PIN 13
 #define BEEP_ON 50   // ms
 #define BEEP_OFF 100 // ms
+#define BEEP_DANGER_ON 2000  // ms
+#define BEEP_DANGER_OFF 1000 // ms
 
-byte beeperGlabalState = LOW;
+byte beeperDangerMode = 0;
+byte beeperGlobalState = LOW;
 byte beepsRequestedGlobal = 0;
 
 unsigned long lastBeeperMillis = 0;
@@ -102,6 +113,9 @@ unsigned long lastMeterRead = 0;
 void setup()
 {
   setSyncProvider(RTC.get);
+
+  // set pir pin mode
+  pinMode(PIR_PIN, INPUT);
 
   // button pins setup
   pinMode(BTN_01_PIN, INPUT);
@@ -194,9 +208,8 @@ void loop()
   // update lcd
   updateLcd();
 
-  // use beep with 0 cnt to track surrent state only
-  beep(0);
-  digitalWrite(BEEPER_PIN, beeperGlabalState);
+  // handle beep
+  handleBeep();
 
   // read data from esp uart
   if (espSerialStarted) {
@@ -215,6 +228,18 @@ void loop()
   if (lastSentStat == 0 || millis() - lastSentStat >= PERIODIC_SEND_STAT_INTERVAL) {
       sendStat();
   }
+
+  // update last time when pir sensor detected activity
+  if (digitalRead(PIR_PIN) == true) {
+      lastPirMillis = millis();
+  }
+  // entering armed mode if no motion was detected within last N seconds
+  globalArmed = millis() - lastPirMillis >= ARMED_INTERVAL;
+  if (globalArmed != globalArmedLast) {
+      beep(globalArmed ? 2 : 5, 0);
+      sendStat();
+  }
+  globalArmedLast = globalArmed;  
   
 }
 
@@ -222,10 +247,11 @@ void sendStat() {
 
     if (!espSerialStarted) return;
 
-    espSerial.print(  "field1=" + String(counters[TOTAL_HOT]  * IMP_WEIGHT));
-    espSerial.print( "&field2=" + String(counters[TOTAL_COLD] * IMP_WEIGHT));
-    espSerial.print( "&field3=" + String(counters[DAILY_HOT]  * IMP_WEIGHT));
-    espSerial.print( "&field4=" + String(counters[DAILY_COLD] * IMP_WEIGHT));
+    espSerial.print( "field1=" + String(counters[TOTAL_HOT]  * IMP_WEIGHT));
+    espSerial.print("&field2=" + String(counters[TOTAL_COLD] * IMP_WEIGHT));
+    espSerial.print("&field3=" + String(counters[DAILY_HOT]  * IMP_WEIGHT));
+    espSerial.print("&field4=" + String(counters[DAILY_COLD] * IMP_WEIGHT));
+    espSerial.print("&field5=" + String(globalArmed));
     espSerial.print("\r");
 
     lastSentStat = millis();
@@ -322,7 +348,7 @@ void tickMeter(byte channel) {
 
   if (channel == HOT) {
 
-    beep(3); // beep 3 times to indicate consumption of 10 liters of hot water
+    beep(3, 0); // beep 3 times to indicate consumption of 10 liters of hot water
     
     counters[TOTAL_HOT]++;
     counters[DAILY_HOT]++;
@@ -331,14 +357,19 @@ void tickMeter(byte channel) {
 
   } else if (channel == COLD) {
 
-
-    beep(1); // beep 1 time to indicate consumption of 10 liters of cold water
+    beep(1, 0); // beep 1 time to indicate consumption of 10 liters of cold water
     
     counters[TOTAL_COLD]++;
     counters[DAILY_COLD]++;
     eepromWriteInt(TOTAL_COLD * 2, counters[TOTAL_COLD]);
     eepromWriteInt(DAILY_COLD * 2, counters[DAILY_COLD]);
 
+  }
+
+  if (globalArmed) {
+    hotValveState = HIGH;
+    coldValveState = HIGH; 
+    beep(5, 1);
   }
 
   sendStat();
@@ -363,10 +394,16 @@ void updateLcd() {
   lcd.write(' ');
   lcd.print(counters[TOTAL_COLD] * IMP_WEIGHT, 2);
 
+  // indicate valves
+  lcd.setCursor(13, 1);
+  lcd.print(hotValveState ? "CLS" : "OPN");
+  lcd.setCursor(13, 2);
+  lcd.print(coldValveState ? "CLS" : "OPN");
+
   // meter states hot/cold
-  lcd.setCursor(16, 1);
+  lcd.setCursor(17, 1);
   lcd.print(stateToLabel(lastMeterState[HOT]));
-  lcd.setCursor(16, 2);
+  lcd.setCursor(17, 2);
   lcd.print(stateToLabel(lastMeterState[COLD]));
   
   // display time
@@ -376,37 +413,49 @@ void updateLcd() {
   printZeroPadded(minute());
   lcd.write(':'); 
   printZeroPadded(second());
+
+  // indicate arm mode
+  lcd.setCursor(0, 3);
+  lcd.print(globalArmed ? "GUARD" : "WORK ");
+   
 }
 
 char* stateToLabel(int state) {
   switch(state) {
     case SENSOR_ST_OPEN:
-      return "Open";
+      return "OPN";
     case SENSOR_ST_CLOSE:
-      return "Clsd";
+      return "CLS";
     case SENSOR_ST_SHORT:
-      return "Shrt";
+      return "SCH";
     case SENSOR_ST_LOST:
-      return "Lost";
+      return "LST";
     case SENSOR_ST_UNDETERMINATE:
-      return "Undt";
+      return "UND";
   }
 }
 
+// request beeping
+// cnt - how many times to beep
+// dangerMode - use long beeps with lons pauses to indicate something wrong is happening
+void beep(byte cnt, byte dangerMode) {
+    beepsRequestedGlobal = cnt;
+    beeperDangerMode = dangerMode;
+}
 
-void beep(int cnt) {
+// handle beeping
+void handleBeep() {
   if (beepsRequestedGlobal > 0) {
       unsigned long currentMillis = millis();
-      if (beeperGlabalState == LOW && currentMillis - lastSubbeepMillis >= BEEP_OFF)  {
-           beeperGlabalState = HIGH;
+      if (beeperGlobalState == LOW && currentMillis - lastSubbeepMillis >= (beeperDangerMode == 1 ? BEEP_DANGER_OFF : BEEP_OFF))  {
+           beeperGlobalState = HIGH;
            lastSubbeepMillis = currentMillis;
-      } else if (beeperGlabalState == HIGH && currentMillis - lastSubbeepMillis >= BEEP_ON)  {
-           beeperGlabalState = LOW;
+      } else if (beeperGlobalState == HIGH && currentMillis - lastSubbeepMillis >= (beeperDangerMode == 1 ? BEEP_DANGER_ON : BEEP_ON))  {
+           beeperGlobalState = LOW;
            lastSubbeepMillis = currentMillis;
            beepsRequestedGlobal--;
       }
-  } else {
-    beepsRequestedGlobal = cnt;
   }
+  digitalWrite(BEEPER_PIN, beeperGlobalState);
 }
 
