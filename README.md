@@ -1,21 +1,21 @@
 ###Features and todos:
-- implement UPS 
-- ensure RTC is runnig on unit startup
-- pressure sensors
-- add wired water leakage sensors
-- decrease EEPROM write frequency
-- fix daily reset issue (keep last reset time in eeprom)
-- 433 mhz remote(?)
-- use sockets to connect sensors (eg rj45)
-- menu sounds
-- 12v for beeper and pwm
-+ armed/disarmed mode (automatic by absence of movement detected/manual)
-+ send stat in event of changing value / or each n-mintes
-+ connect sensors and valves
-+ attach encoder
-+ attach buttons
-+ add wifi (esp8266)
-+ publish statistics to https://thingspeak.com
+- [ ] implement UPS 
+- [ ] ensure RTC is runnig on unit startup
+- [ ] pressure sensors
+- [ ] add wired water leakage sensors
+- [ ] decrease EEPROM write frequency
+- [ ] fix daily reset issue (keep last reset time in eeprom)
+- [ ] 433 mhz remote(?)
+- [ ] use sockets to connect sensors (eg rj45)
+- [ ] menu sounds
+- [ ] 12v for beeper and pwm
+- [x] armed/disarmed mode (automatic by absence of movement detected/manual)
+- [x] send stat in event of changing value / or each n-mintes
+- [x] connect sensors and valves
+- [x] attach encoder
+- [x] attach buttons
+- [x] add wifi (esp8266)
+- [x] publish statistics to https://thingspeak.com
 
 ###Adjustable parameters:
 - display backlight on/off
