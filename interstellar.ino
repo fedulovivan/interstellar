@@ -49,7 +49,7 @@ SoftwareSerial espSerial(5, 6); // RX, TX
 #define COLD 1
 
 // system goes to armed mode if no motion detected for last 30 mins
-#define ARMED_INTERVAL 1800000
+#define ARMED_INTERVAL 7200000
 byte globalArmed = false;
 byte globalArmedLast = false;
 
@@ -97,6 +97,10 @@ unsigned long lastSubbeepMillis = 0;
 #define HOT_VALVE_PIN 8
 #define COLD_VALVE_PIN 7
 
+// water leakage sensor
+#define WATER_LEAKAGE_SENSOR_PIN 2
+byte waterLeakageLast;
+
 // valves are configured closed on startup
 byte hotValveState = HIGH;
 byte coldValveState = HIGH;
@@ -127,6 +131,9 @@ void setup()
   pinMode(HOT_VALVE_PIN, OUTPUT);
   pinMode(COLD_VALVE_PIN, OUTPUT);
 
+  // water leakage sensor
+  pinMode(WATER_LEAKAGE_SENSOR_PIN, INPUT);
+
   // update with unitial values
   updateHotValve();
   updateColdValve(); 
@@ -135,7 +142,7 @@ void setup()
   pinMode(HOT_METER_PIN,  INPUT);
   pinMode(COLD_METER_PIN, INPUT);
 
-  // set actual initial values to avoid capturing unsired pulse 
+  // set actual initial values to avoid capturing undesired pulse 
   lastMeterState[HOT] = readMeter(HOT_METER_PIN);
   lastMeterState[COLD] = readMeter(COLD_METER_PIN);
 
@@ -153,7 +160,7 @@ void setup()
   lcd.setBacklightPin(BACKLIGHT_PIN, POSITIVE);
   lcd.setBacklight(HIGH);
 
-  // present some welcome screen
+  // show some welcome screen
   lcd.home();
   lcd.print("Interstellar");
   writeDotWithDelay(3);
@@ -233,13 +240,19 @@ void loop()
   if (digitalRead(PIR_PIN) == true) {
       lastPirMillis = millis();
   }
-  // entering armed mode if no motion was detected within last N seconds
+  // entering armed mode if no motion was detected by pir within last N seconds
   globalArmed = millis() - lastPirMillis >= ARMED_INTERVAL;
   if (globalArmed != globalArmedLast) {
       beep(globalArmed ? 2 : 5, 0);
       sendStat();
   }
   globalArmedLast = globalArmed;  
+
+  byte waterLeakage = digitalRead(WATER_LEAKAGE_SENSOR_PIN);
+  if (waterLeakage != waterLeakageLast && waterLeakage == false) {
+      emergency();
+  }
+  waterLeakageLast = waterLeakage;
   
 }
 
@@ -366,13 +379,20 @@ void tickMeter(byte channel) {
 
   }
 
+  // emergency: undesired water consumption detected when system is in armed mode
   if (globalArmed) {
-    hotValveState = HIGH;
-    coldValveState = HIGH; 
-    beep(5, 1);
+    emergency();
   }
 
   sendStat();
+}
+
+// cut off water
+// make 5 long beeps
+void emergency() {
+    hotValveState = HIGH;
+    coldValveState = HIGH; 
+    beep(5, 1);
 }
 
 void updateLcd() {
