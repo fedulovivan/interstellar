@@ -1,0 +1,2 @@
+reading chip identity with ISP programmer USBasp (http://www.fischl.de/usbasp/) for Arduino UNO:
+`/Applications/Arduino.app/Contents/Java/hardware/tools/avr/bin/avrdude -C /Applications/Arduino.app/Contents/Java/hardware/tools/avr/etc/avrdude.conf -p m328p -c usbasp`
