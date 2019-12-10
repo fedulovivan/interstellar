@@ -1,7 +1,7 @@
 #include <Time.h> // https://github.com/PaulStoffregen/Time
 #include <TimeLib.h> // https://github.com/PaulStoffregen/Time
 #include <LiquidCrystal_I2C.h> //https://github.com/fdebrabander/Arduino-LiquidCrystal-I2C-library
-#include <Wire.h> 
+#include <Wire.h>
 #include <DS3232RTC.h> //http://github.com/JChristensen/DS3232RTC
 #include <LCD.h> //https://bitbucket.org/fmalpartida/new-liquidcrystal
 #include <EEPROM.h>
@@ -30,9 +30,9 @@ SoftwareSerial espSerial(5, 6); // RX, TX
 #define SENSOR_TH_OPEN  850 // analog value read from sensor pin when reed switch is open
 #define SENSOR_TH_CLOSE 615 // --,,-- is closed
 #define TH_SENS         60  // sensivity corridor. even if analog value differs from expected at this amount
-                            // (either in positive or negative side), state is still considered matching expectations 
+                            // (either in positive or negative side), state is still considered matching expectations
 
-#define SENSOR_ST_OPEN          0 // reed is open 
+#define SENSOR_ST_OPEN          0 // reed is open
 #define SENSOR_ST_CLOSE         1 // reed is closed
 #define SENSOR_ST_SHORT         2 // short circuit of meter
 #define SENSOR_ST_LOST          3 // lost contact with meter
@@ -56,7 +56,7 @@ byte globalArmedLast = false;
 #define PIR_PIN 4
 long lastPirMillis = 0;
 
-unsigned int counters[] = {0, 0, 0, 0};
+/*unsigned*/ int counters[] = {0, 0, 0, 0};
 
 // last remembered states of each meter sensor
 byte lastMeterState[2];
@@ -127,6 +127,9 @@ void setup()
   pinMode(BTN_03_PIN, INPUT);
   pinMode(BTN_04_PIN, INPUT);
 
+  // beeper pin mode
+  pinMode(BEEPER_PIN, OUTPUT);
+
   // valve pins setup
   pinMode(HOT_VALVE_PIN, OUTPUT);
   pinMode(COLD_VALVE_PIN, OUTPUT);
@@ -136,25 +139,43 @@ void setup()
 
   // update with unitial values
   updateHotValve();
-  updateColdValve(); 
+  updateColdValve();
 
   // init analog pins, meters reeds are connected to
   pinMode(HOT_METER_PIN,  INPUT);
   pinMode(COLD_METER_PIN, INPUT);
 
-  // set actual initial values to avoid capturing undesired pulse 
+  // set actual initial values to avoid capturing undesired pulse
   lastMeterState[HOT] = readMeter(HOT_METER_PIN);
   lastMeterState[COLD] = readMeter(COLD_METER_PIN);
 
   // pull saved values from eeprom
-  for(byte i = 0; i < COUNTERS_SIZE; i++) {
-    counters[i] = eepromReadInt(i*2);
+  // for(byte i = 0; i < COUNTERS_SIZE; i++) {
+    // EEPROM.get(i, counters[i]);
+    // EEPROM.get(i * 2, counters[i]);
+  //counters[i] = eepromReadInt(i * 2);
+  //eepromWriteInt(i * 2, counters[i]);
+  // }
+
+  for (int i = 0 ; i < EEPROM.length() ; i++) {
+    // EEPROM.put(i * sizeof(int), (int)0);
   }
+
+  EEPROM.get(0, counters[TOTAL_HOT]);
+  EEPROM.get(2, counters[TOTAL_COLD]);
+  EEPROM.get(4, counters[DAILY_HOT]);
+  EEPROM.get(6, counters[DAILY_COLD]);
+
+  // counters[0] = eepromReadInt(0);
+  // counters[1] = eepromReadInt(2);
+  // counters[2] = eepromReadInt(4);
+  // counters[3] = eepromReadInt(6);
+
 
   // read initial value for dialy reset detection
   // TODO monitor correct RTC startup
   lastDialyReset = day();
- 
+
   // init lcd
   lcd.begin(20, 4);
   lcd.setBacklightPin(BACKLIGHT_PIN, POSITIVE);
@@ -164,14 +185,14 @@ void setup()
   lcd.home();
   lcd.print("Interstellar");
   writeDotWithDelay(3);
-  
+
   lcd.clear();
 
 }
 
 void loop()
 {
-  
+
   // delay serial startup, give time for esp to start
   if (!espSerialStarted && millis() > 10000) {
       espSerial.begin(9600);
@@ -207,11 +228,11 @@ void loop()
 
   // update output signals
   updateHotValve();
-  updateColdValve();  
+  updateColdValve();
 
   // reset dialy counters
   resetDailyCounters();
-  
+
   // update lcd
   updateLcd();
 
@@ -219,41 +240,48 @@ void loop()
   handleBeep();
 
   // read data from esp uart
-  if (espSerialStarted) {
-    // read all available bytes from serial but dump only first 4 to lcd
-    lcd.setCursor(16, 0);
-    int bytes = espSerial.available();
-    if (bytes) {
-        for(int i = 0; i < bytes; i++) {
-          char readChar = espSerial.read();
-          if(i < 4) lcd.write(readChar);
-        }
-     }    
-  }
-  
+//  if (espSerialStarted) {
+//    // read all available bytes from serial but dump only first 4 to lcd
+//    lcd.setCursor(16, 0);
+//    int bytes = espSerial.available();
+//    if (bytes) {
+//        for(int i = 0; i < bytes; i++) {
+//          char readChar = espSerial.read();
+//          if(i < 4) {
+//            lcd.write(readChar);
+//          } else {
+//            break;
+//          }
+//        }
+//     }
+//  }
+
   // send statistics immediately and then periodically
   if (lastSentStat == 0 || millis() - lastSentStat >= PERIODIC_SEND_STAT_INTERVAL) {
       sendStat();
   }
 
   // update last time when pir sensor detected activity
-  if (digitalRead(PIR_PIN) == true) {
-      lastPirMillis = millis();
-  }
+  // if (digitalRead(PIR_PIN) == true) {
+  //     lastPirMillis = millis();
+  // }
+  // TODO dummy for absent pir sensor
+  lastPirMillis = millis();
+
   // entering armed mode if no motion was detected by pir within last N seconds
   globalArmed = millis() - lastPirMillis >= ARMED_INTERVAL;
   if (globalArmed != globalArmedLast) {
       beep(globalArmed ? 2 : 5, 0);
       sendStat();
   }
-  globalArmedLast = globalArmed;  
+  globalArmedLast = globalArmed;
 
   byte waterLeakage = digitalRead(WATER_LEAKAGE_SENSOR_PIN);
   if (waterLeakage != waterLeakageLast && waterLeakage == false) {
       emergency();
   }
   waterLeakageLast = waterLeakage;
-  
+
 }
 
 void sendStat() {
@@ -281,9 +309,9 @@ void updateColdValve() {
 void resetDailyCounters() {
   if(lastDialyReset != day()) {
     counters[DAILY_HOT] = 0;
-    eepromWriteInt(DAILY_HOT * 2, 0);
+    //eepromWriteInt(DAILY_HOT * 2, 0);
     counters[DAILY_COLD] = 0;
-    eepromWriteInt(DAILY_COLD * 2, 0);
+    //eepromWriteInt(DAILY_COLD * 2, 0);
     lastDialyReset = day();
   }
 }
@@ -297,13 +325,13 @@ void handleMeterStateChange(byte channel, int pinNum) {
 }
 
 int readMeter(int pinNum) {
-  
+
   int meanVal = analogReadMean(pinNum);
 
   if(meanVal < SENSOR_TH_CLOSE - TH_SENS) {
     return SENSOR_ST_SHORT;
   } else if (meanVal > SENSOR_TH_OPEN + TH_SENS) {
-    return SENSOR_ST_LOST;    
+    return SENSOR_ST_LOST;
   } else if (meanVal < SENSOR_TH_OPEN + TH_SENS && meanVal > SENSOR_TH_OPEN - TH_SENS) {
     return SENSOR_ST_OPEN;
   } else if (meanVal < SENSOR_TH_CLOSE + TH_SENS && meanVal > SENSOR_TH_CLOSE - TH_SENS) {
@@ -324,21 +352,34 @@ int analogReadMean(int pinNum) {
    return total/samples;
 }
 
-void eepromWriteInt(int addr, int value) {
-  byte lowByte = ((value >> 0) & 0xFF);
-  byte highByte = ((value >> 8) & 0xFF);
-  EEPROM.write(addr, lowByte);
-  EEPROM.write(addr + 1, highByte);
-}
+// unsigned int eepromReadInt(int addr) {
+//   byte raw[2];
+//   for(byte i = 0; i < 2; i++) raw[i] = EEPROM.read(addr+i);
+//   unsigned int &num = (unsigned int&)raw;
+//   return num;
+// }
 
-int eepromReadInt(int addr) {
-  byte lowByte = EEPROM.read(addr);
-  byte highByte = EEPROM.read(addr + 1);
-  return ((lowByte << 0) & 0xFF) + ((highByte << 8) & 0xFF);
-}
+// void eepromWriteInt(int addr, unsigned int num) {
+//   byte raw[2];
+//   (unsigned int&)raw = num;
+//   for(byte i = 0; i < 2; i++) EEPROM.write(addr+i, raw[i]);
+// }
+
+//void eepromWriteInt(int addr, int value) {
+//  byte lowByte = ((value >> 0) & 0xFF);
+//  byte highByte = ((value >> 8) & 0xFF);
+//  EEPROM.write(addr, lowByte);
+//  EEPROM.write(addr + 1, highByte);
+//}
+//
+//int eepromReadInt(int addr) {
+//  byte lowByte = EEPROM.read(addr);
+//  byte highByte = EEPROM.read(addr + 1);
+//  return ((lowByte << 0) & 0xFF) + ((highByte << 8) & 0xFF);
+//}
 
 void writeDotWithDelay(int dots) {
-  while(dots--) { 
+  while(dots--) {
     lcd.write('.');
     delay(300);
   }
@@ -362,20 +403,22 @@ void tickMeter(byte channel) {
   if (channel == HOT) {
 
     beep(3, 0); // beep 3 times to indicate consumption of 10 liters of hot water
-    
+
     counters[TOTAL_HOT]++;
     counters[DAILY_HOT]++;
-    eepromWriteInt(TOTAL_HOT * 2, counters[TOTAL_HOT]);
-    eepromWriteInt(DAILY_HOT * 2, counters[DAILY_HOT]);
+
+    //eepromWriteInt(TOTAL_HOT * 2, counters[TOTAL_HOT]);
+    //eepromWriteInt(DAILY_HOT * 2, counters[DAILY_HOT]);
 
   } else if (channel == COLD) {
 
     beep(1, 0); // beep 1 time to indicate consumption of 10 liters of cold water
-    
+
     counters[TOTAL_COLD]++;
     counters[DAILY_COLD]++;
-    eepromWriteInt(TOTAL_COLD * 2, counters[TOTAL_COLD]);
-    eepromWriteInt(DAILY_COLD * 2, counters[DAILY_COLD]);
+
+    //eepromWriteInt(TOTAL_COLD * 2, counters[TOTAL_COLD]);
+    //eepromWriteInt(DAILY_COLD * 2, counters[DAILY_COLD]);
 
   }
 
@@ -391,7 +434,7 @@ void tickMeter(byte channel) {
 // make 5 long beeps
 void emergency() {
     hotValveState = HIGH;
-    coldValveState = HIGH; 
+    coldValveState = HIGH;
     beep(5, 1);
 }
 
@@ -399,20 +442,20 @@ void updateLcd() {
 
   lcd.setCursor(2, 0);
   lcd.print("Day  Total");
-  
-  // hot dialy/total 
+
+  // hot dialy/total
   lcd.setCursor(0, 1);
   lcd.print("H ");
-  lcd.print(counters[DAILY_HOT] * IMP_WEIGHT, 2);
+  lcd.print(counters[DAILY_HOT]/* * IMP_WEIGHT, 2*/);
   lcd.write(' ');
-  lcd.print(counters[TOTAL_HOT] * IMP_WEIGHT, 2);
+  lcd.print(counters[TOTAL_HOT]/* * IMP_WEIGHT, 2*/);
 
   // cold dialy/total
   lcd.setCursor(0, 2);
   lcd.print("C ");
-  lcd.print(counters[DAILY_COLD] * IMP_WEIGHT, 2);
+  lcd.print(counters[DAILY_COLD]/* * IMP_WEIGHT, 2*/);
   lcd.write(' ');
-  lcd.print(counters[TOTAL_COLD] * IMP_WEIGHT, 2);
+  lcd.print(counters[TOTAL_COLD]/* * IMP_WEIGHT, 2*/);
 
   // indicate valves
   lcd.setCursor(13, 1);
@@ -425,19 +468,19 @@ void updateLcd() {
   lcd.print(stateToLabel(lastMeterState[HOT]));
   lcd.setCursor(17, 2);
   lcd.print(stateToLabel(lastMeterState[COLD]));
-  
+
   // display time
   lcd.setCursor(12, 3);
   printZeroPadded(hour());
-  lcd.write(':'); 
+  lcd.write(':');
   printZeroPadded(minute());
-  lcd.write(':'); 
+  lcd.write(':');
   printZeroPadded(second());
 
   // indicate arm mode
   lcd.setCursor(0, 3);
   lcd.print(globalArmed ? "GUARD" : "WORK ");
-   
+
 }
 
 char* stateToLabel(int state) {
@@ -478,4 +521,3 @@ void handleBeep() {
   }
   digitalWrite(BEEPER_PIN, beeperGlobalState);
 }
-

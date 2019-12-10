@@ -1,0 +1,5 @@
+uart.setup(0, 9600, 8, uart.PARITY_NONE, uart.STOPBITS_1, 1)
+uart.on("data", 9, function(data)
+    print("received 9 bytes:", data)
+end)
+uart.write(0, 0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79)
