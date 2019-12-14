@@ -48,7 +48,7 @@ https://bitbucket.org/nadyrshin_ryu/esp8285_bn-sz01/src/master/mqtt_bn-sz01_dim_
 - using cli tool to upload lua scripts to esp8266
     git clone https://github.com/4refr0nt/luatool
     cd luatool/luatool
-    luac -p ~/Dropbox/Arduino/interstellar/nodemcu/mqtt.lua && ./luatool.py --port /dev/cu.wchusbserial1410 --src ~/Dropbox/Arduino/interstellar/nodemcu/mqtt.lua --dest mqtt.lua --baud 1200 --verbose
+    luac -p ~/Dropbox/Arduino/interstellar/nodemcu/mqtt.lua && /Users/johnny/Desktop/Projects/luatool/luatool/luatool.py --port /dev/cu.wchusbserial1410 --src ~/Dropbox/Arduino/interstellar/nodemcu/mqtt.lua --dest mqtt.lua --baud 1200 --verbose
 
 https://habr.com/ru/post/411259/
 

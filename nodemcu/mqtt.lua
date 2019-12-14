@@ -110,6 +110,7 @@ tmr.alarm(0, 5000, 1, function()
                         if CheckCrc(receivedCrc, calculatedCrc) then
                             local co2 = (256 * co2HighByte) + co2LowByte
                             local temperature = temperatureRaw - 40
+                            mqttClient:publish("/ESP/MH/DATA", "{\"co2\":"..co2..",\"temp\":"..temperature.."}", 0, 0)
                             mqttClient:publish("/ESP/MH/CO2", co2, 0, 0)
                             mqttClient:publish("/ESP/MH/TEMP", temperature, 0, 0)
                         else
