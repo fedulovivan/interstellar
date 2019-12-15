@@ -49,6 +49,9 @@ https://bitbucket.org/nadyrshin_ryu/esp8285_bn-sz01/src/master/mqtt_bn-sz01_dim_
     git clone https://github.com/4refr0nt/luatool
     cd luatool/luatool
     luac -p ~/Dropbox/Arduino/interstellar/nodemcu/mqtt.lua && /Users/johnny/Desktop/Projects/luatool/luatool/luatool.py --port /dev/cu.wchusbserial1410 --src ~/Dropbox/Arduino/interstellar/nodemcu/mqtt.lua --dest mqtt.lua --baud 1200 --verbose
+    or via https://www.npmjs.com/package/nodemcu-tool
+    yarn global add nodemcu-tool
+    luac -p mqtt.lua && nodemcu-tool -p /dev/cu.wchusbserial1410 upload mqtt.lua
 
 https://habr.com/ru/post/411259/
 

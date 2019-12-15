@@ -1,12 +1,14 @@
-lighton=0
-pin=4
-gpio.mode(pin,gpio.OUTPUT)
-tmr.alarm(1,2000,1,function()
+local lighton=0
+local pin=4
+gpio.mode(pin, gpio.OUTPUT)
+local mytimer = tmr.create()
+mytimer:register(2000, tmr.ALARM_AUTO, function()
     if lighton==0 then
         lighton=1
-        gpio.write(pin,gpio.HIGH)
+        gpio.write(pin, gpio.HIGH)
     else
         lighton=0
-         gpio.write(pin,gpio.LOW)
+        gpio.write(pin, gpio.LOW)
     end
 end)
+mytimer:start()
