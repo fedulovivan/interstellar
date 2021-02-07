@@ -4,7 +4,7 @@
 local WIFI_SSID = "wifi domru ivanf"
 local WIFI_PWD = "useitatyourownrisk"
 
-local MQTT_BROKER_IP = "192.168.88.207"
+local MQTT_BROKER_IP = "192.168.88.188"
 local MQTT_BROKER_PORT = 1883
 local MQTT_CLIENT_ID = "esp8266-mhz19"
 local MQTT_BROKER_USER = "mosquitto"

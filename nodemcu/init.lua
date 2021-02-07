@@ -1,1 +1,0 @@
-dofile("ntp.lua")
