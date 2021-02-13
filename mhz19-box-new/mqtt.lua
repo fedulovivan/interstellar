@@ -1,5 +1,5 @@
 
--- inspired by https://bitbucket.org/nadyrshin_ryu/esp8266_mqtt/src/master/mqtt.lua
+-- mqtt init code is borrowed from https://bitbucket.org/nadyrshin_ryu/esp8266_mqtt/src/master/mqtt.lua
 
 local WIFI_SSID = "wifi domru ivanf"
 local WIFI_PWD = "useitatyourownrisk"
