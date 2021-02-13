@@ -11,7 +11,7 @@ local MQTT_BROKER_USER = "mosquitto"
 local MQTT_BROKER_PWD = "5Ysm3jAsVP73nva"
 
 -- built-in led pin
-local LED_PIN = 4
+local LED_PIN = 4 -- GPIO2(D4)
 
 -- for uploading scripts need to connect pin with ground on startup
 local UART_ENABLE_PIN = 1 -- GPIO5(D1)

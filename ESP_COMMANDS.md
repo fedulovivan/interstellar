@@ -1,3 +1,6 @@
+GPIO pins
+https://www.electronicwings.com/nodemcu/nodemcu-gpio-with-arduino-ide
+
 Flash esp8266 with nodemcu firmware:
 ./esptool.py --baud 115200 --port /dev/cu.wchusbserial1410 write_flash 0x0000 ~/Downloads/nodemcu-master-8-modules-2016-06-12-12-58-18-integer.bin
 
