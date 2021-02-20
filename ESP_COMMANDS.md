@@ -1,5 +1,7 @@
-GPIO pins
+Node MCU articles
+https://rabbithole.wwwdotorg.org/2017/03/28/esp8266-gpio.html
 https://www.electronicwings.com/nodemcu/nodemcu-gpio-with-arduino-ide
+https://esp8266-projects.org/2015/03/buttons-pushbuttons-and-debouncing-story-html/
 
 Flash esp8266 with nodemcu firmware:
 ./esptool.py --baud 115200 --port /dev/cu.wchusbserial1410 write_flash 0x0000 ~/Downloads/nodemcu-master-8-modules-2016-06-12-12-58-18-integer.bin
