@@ -1,14 +1,21 @@
 
 -- mqtt init code is borrowed from https://bitbucket.org/nadyrshin_ryu/esp8266_mqtt/src/master/mqtt.lua
 
+backend_meta = require "lc-i2c4bit";
+lc_meta = require "liquidcrystal";
+
 local WIFI_SSID = "wifi domru ivanf"
 local WIFI_PWD = "useitatyourownrisk"
-
 local MQTT_BROKER_IP = "192.168.88.188"
 local MQTT_BROKER_PORT = 1883
 local MQTT_CLIENT_ID = "esp8266-mhz19"
 local MQTT_BROKER_USER = "mosquitto"
 local MQTT_BROKER_PWD = "5Ysm3jAsVP73nva"
+
+-- create display object
+lc = lc_meta(backend_meta{sda=1, scl=2}, false, true, 16)
+backend_meta = nil
+lc_meta = nil
 
 -- built-in led pin
 local LED_PIN = 4 -- GPIO2(D4)
@@ -19,11 +26,17 @@ local UART_ENABLE_PIN = 1 -- GPIO5(D1)
 gpio.mode(LED_PIN, gpio.OUTPUT)
 gpio.mode(UART_ENABLE_PIN, gpio.INPUT, gpio.PULLUP)
 
-local uart_enabled = gpio.read(UART_ENABLE_PIN) == 1
+local uart_enabled = gpio.read(UART_ENABLE_PIN) == 1;
 
-wifi.setmode(wifi.STATION)
-wifi.sta.config(WIFI_SSID, WIFI_PWD)
-wifi.sta.connect()
+local mqttClient = mqtt.Client(MQTT_CLIENT_ID, 120, MQTT_BROKER_USER, MQTT_BROKER_PWD)
+
+local wifiReconnectTmr = tmr.create();
+local queryMhzTmr = tmr.create();
+
+-- init wifi
+wifi.setmode(wifi.STATION);
+wifi.sta.config { ssid=WIFI_SSID, pwd=WIFI_PWD };
+wifi.sta.connect();
 
 local wifi_status_old = 0
 
@@ -45,36 +58,46 @@ function GetByteFromBuffer(buffer, index)
     return string.byte(buffer, normalBytesMap[index])
 end
 
-tmr.alarm(0, 5000, 1, function()
+queryMhzTmr:register(1000, tmr.ALARM_AUTO, function()
+    uart.write(0, 0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79);
+end);
+
+lc:write("Starting...");
+
+wifiReconnectTmr:register(5000, tmr.ALARM_AUTO, function()
 
     if wifi.sta.status() == 5 then
+
         if wifi_status_old ~= 5 then
 
-            local mqttClient = mqtt.Client(MQTT_CLIENT_ID, 120, MQTT_BROKER_USER, MQTT_BROKER_PWD)
+            lc:clear();
+            lc:write(wifi.sta.getip());
+            -- mqttClient:on("offline", function(client)
+            --     tmr.stop(1)
+            -- end)
 
-            mqttClient:on("offline", function(client)
-                tmr.stop(1)
-            end)
+            -- mqttClient:on("message", function(client, topic, data)
+            --     if topic == "/ESP/LED/CMD" then
+            --         if data == "0" then
+            --             gpio.write(LED_PIN, gpio.HIGH)
+            --         end
+            --         if data == "1" then
+            --             gpio.write(LED_PIN, gpio.LOW)
+            --         end
+            --     end
+            -- end)
 
-            mqttClient:on("message", function(client, topic, data)
-                if topic == "/ESP/LED/CMD" then
-                    if data == "0" then
-                        gpio.write(LED_PIN, gpio.HIGH)
-                    end
-                    if data == "1" then
-                        gpio.write(LED_PIN, gpio.LOW)
-                    end
-                end
-            end)
+            mqttClient:connect(MQTT_BROKER_IP, MQTT_BROKER_PORT, false, function(conn)
 
-            mqttClient:connect(MQTT_BROKER_IP, MQTT_BROKER_PORT, 0, 1, function(conn)
+                lc:clear();
+                lc:write("MQTT connected");
 
                 if uart_enabled then
 
                     uart.setup(0, 9600, 8, uart.PARITY_NONE, uart.STOPBITS_1, 0)
 
-                    mqttClient:publish("/ESP/MH/DEBUG", "uart_enabled=true", 0, 0)
-                    mqttClient:publish("/ESP/MH/DEBUG", uart.getconfig(0), 0, 0)
+                    -- mqttClient:publish("/ESP/MH/DEBUG", "uart_enabled=true", 0, 0)
+                    -- mqttClient:publish("/ESP/MH/DEBUG", uart.getconfig(0), 0, 0)
 
                     local buffer = ""
 
@@ -84,12 +107,12 @@ tmr.alarm(0, 5000, 1, function()
 
                         local current_buffer_length = string.len(buffer)
 
-                        mqttClient:publish("/ESP/MH/DEBUG", string.format("%d 0x%02X", current_buffer_length, string.byte(char)), 0, 0)
+                        -- mqttClient:publish("/ESP/MH/DEBUG", string.format("%d 0x%02X", current_buffer_length, string.byte(char)), 0, 0)
 
                         local invalid_first_two_bytes = string.sub(buffer, 1, 2) ~= string.char(0xFF, 0x86)
 
                         if (invalid_first_two_bytes and current_buffer_length > 1) then
-                            mqttClient:publish("/ESP/MH/DEBUG", "invalid buffer", 0, 0)
+                            -- mqttClient:publish("/ESP/MH/DEBUG", "invalid buffer", 0, 0)
                             buffer = ""
                             return
                         end
@@ -97,7 +120,7 @@ tmr.alarm(0, 5000, 1, function()
                         local buffer_ready = current_buffer_length == 9
 
                         if buffer_ready == false then
-                            return
+                            return;
                         end
 
                         local co2HighByte = GetByteFromBuffer(buffer, 2)
@@ -108,11 +131,19 @@ tmr.alarm(0, 5000, 1, function()
                         local calculatedCrc = CalculateCrc(buffer)
 
                         if CheckCrc(receivedCrc, calculatedCrc) then
+
                             local co2 = (256 * co2HighByte) + co2LowByte
                             local temperature = temperatureRaw - 40
-                            mqttClient:publish("/ESP/MH/DATA", "{\"co2\":"..co2..",\"temp\":"..temperature.."}", 0, 0)
                             mqttClient:publish("/ESP/MH/CO2", co2, 0, 0)
                             mqttClient:publish("/ESP/MH/TEMP", temperature, 0, 0)
+
+                            lc:clear();
+                            lc:write(tostring(co2), " PPM");
+                            lc:cursorMove(1, 2)
+                            lc:write(tostring(temperature), " C");
+
+                            -- mqttClient:publish("/ESP/MH/DATA", "{\"co2\":"..co2..",\"temp\":"..temperature.."}", 0, 0)
+
                         else
                             mqttClient:publish("/ESP/MH/DEBUG", string.format("crc mismatch: received %X and calculated %X", receivedCrc, calculatedCrc), 0, 0)
                         end
@@ -120,30 +151,37 @@ tmr.alarm(0, 5000, 1, function()
                         buffer = ""
 
                     end, 0)
+
+                    queryMhzTmr:start();
+
                 end
 
-                mqttClient:subscribe("/ESP/LED/CMD", 0, function(conn)
-                end)
+                -- mqttClient:subscribe("/ESP/LED/CMD", 0, function(conn)
+                -- end)
 
-                tmr.alarm(1, 5000, 1, function()
+                -- if uart_enabled then
+                -- end;
 
-                    mqttClient:publish("/ESP/LED/STATE", tostring(gpio.read(LED_PIN)), 0, 0)
+                -- queryMhzTmr.alarm(5000, 1, function()
+                --     -- mqttClient:publish("/ESP/LED/STATE", tostring(gpio.read(LED_PIN)), 0, 0)
+                --     if uart_enabled then
+                --         uart.write(0, 0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79)
+                --     end
+                -- end)
 
-                    if uart_enabled then
-                        uart.write(0, 0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79)
-                    end
-
-                end)
             end)
         else
             -- wifi connection is established, do nothing
         end
     else
         -- print("Reconnect "..wifi_status_old.." "..wifi.sta.status())
-        tmr.stop(1)
-        wifi.sta.connect()
+        -- tmr.stop(1)
+        wifi.sta.connect();
     end
 
     -- memoizing wifi connection status for the nex timer tick
-    wifi_status_old = wifi.sta.status()
+    wifi_status_old = wifi.sta.status();
+
 end)
+
+wifiReconnectTmr:start();
