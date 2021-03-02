@@ -1,53 +1,12 @@
-###Features and todos:
-- [ ] implement UPS 
-- [ ] ensure RTC is runnig on unit startup
-- [ ] pressure sensors
-- [ ] add wired water leakage sensors
-- [ ] decrease EEPROM write frequency
-- [ ] fix daily reset issue (keep last reset time in eeprom)
-- [ ] 433 mhz remote(?)
-- [ ] use sockets to connect sensors (eg rj45)
-- [ ] menu sounds
-- [ ] 12v for beeper and pwm
-- [x] armed/disarmed mode (automatic by absence of movement detected/manual)
-- [x] send stat in event of changing value / or each n-mintes
-- [x] connect sensors and valves
-- [x] attach encoder
-- [x] attach buttons
-- [x] add wifi (esp8266)
-- [x] publish statistics to https://thingspeak.com
 
-###Adjustable parameters:
-- display backlight on/off
-- display dev/debug info mode (sensors read values, http stat, esp connection stat, uptime)
-- manual valves management with buttons
-- cloud address (local for tests or external)
-- date and time
-- feature for manual counters reset (or setting required values)
-- sound alarms on/off	
+## Monorepo🤪 for my diy electronics Projects (arduino, nodemcu, diptrace schematics and PCBs)
 
-###Buttons:
-- SET
-- BACK
-- NEXT
-- PREV
-
-###Menu lib features:
-- Flat list - [SET] enables menu mode, [BACK] exits menu, [NEXT] and [PREV] to navigates elements
-- Display some variable no action on [NEXT], [PREV]
-- Edit labeled options (On/Off), (open/closed), select value from predefined list
-- Edit simple number (with limits)
-- Edit big number (with limits)
-
-###Menu elements:
-- Sound on/off
-- Backlight on/off
-- Reset counters
-- Edit hour
-- Edit minute
-- Edit total hot
-- Edit total cold
-- Cold valve open/closed
-- Hot valve open/closed
-- Watchdog on/off
-- Response from ESP
+- [AT-commands-uart-esp8266-test](/AT-commands-uart-esp8266-test) - old sandbox, very first steps in integration esp-12 with original AT firmware and arduino
+- [encodertest](/encodertest) - old sandbox, attempts to create menu navigable with encoder
+- [interstellar](/interstellar) - old water leakage protection project (previously was a root of repository)
+- [ir-remote-for-lg-display](/ir-remote-for-lg-display) - managing lg display volume from apple tv ir remote
+- [mhz19-box-new](/mhz19-box-new) - small box with mhz19 and 1602 display which measures CO2 and sends stats to mqtt server
+- [nodemcu-liquidcrystal-test](/nodemcu-liquidcrystal-test) - sandbox, working with 1602 display from nodemcu
+- [nodemcu-old](/nodemcu-old) - old trash bin with various lua scripts
+- [psu-switch](/psu-switch) - toogle button and relay based on 555 timer for my labaratory psu
+- [valves-manipulator](/valves-manipulator) - part of new water leakage protection project, box for water valves management via mqtt. server-side part of this project is [here](https://github.com/fedulovivan/mhz19-next).
