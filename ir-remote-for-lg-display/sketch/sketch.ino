@@ -1,27 +1,47 @@
 // https://github.com/Arduino-IRremote/Arduino-IRremote
 #include <IRremote.h>
-// https://github.com/contrem/arduino-timer
-#include <arduino-timer.h>
 
-auto leftBtnTimer = timer_create_default();
-auto rightBtnTimer = timer_create_default();
+// download from https://github.com/AlexGyver/GyverLibs/tree/master/GyverPower
+// and put to ~/Documents/Arduino/libraries
+#include <GyverPower.h>
 
-int IR_RECEIVE_PIN = 2;
+// uncomment to enable debug logging to serial console
+// #define DEBUG 1
 
-int LEFT_BTN_PIN = 3;
-int RIGHT_BTN_PIN = 4;
+// gpio pin connected to IR receiver
+// should support external interrupts
+#define IR_INPUT_PIN 2
 
-int BTN_DELAY = 300;
+#define LEFT_BTN_PIN 3
+#define RIGHT_BTN_PIN 4
 
-void leftBtnRelease() {
-    digitalWrite(LEFT_BTN_PIN, LOW);
-}
+// duration of emulated button press
+#define BTN_PRESS_DURATION 200
 
-void rightBtnRelease() {
-    digitalWrite(RIGHT_BTN_PIN, LOW);
-}
+// mcu will go to the sleep in three seconds after receiving last command from remote
+// this lowers power consumption to 0.9mA
+// (99% of this 0.9mA is consumed by 8389 IR receiver which is constanly powered)
+#define LAST_CMD_SLEEP_DELAY 3000
+
+// millis when last cmd was received
+// should be updated on wake up
+unsigned long lastReceivedAt;
 
 void setup() {
+
+    // interrupt handler attached to gpio pin 2
+    attachInterrupt(0, wakeup, CHANGE);
+
+    power.autoCalibrate();
+    power.setSleepMode(POWERDOWN_SLEEP);
+
+    // scale main clock down from 16mhz to 8mhz to increase stabilty on low voltage
+    // since arduino pro mini is powered from 18650 lithium cell
+    //
+    // also in this case power consumption lowers from ~10mA to ~5mA in active mode (not in sleep),
+    // but appears some bug with waking from sleep
+    // first command from remote is ignored by unknown reason
+    // power.setSystemPrescaler(PRESCALER_2);
 
     pinMode(LEFT_BTN_PIN, OUTPUT);
     pinMode(RIGHT_BTN_PIN, OUTPUT);
@@ -29,12 +49,14 @@ void setup() {
     digitalWrite(LEFT_BTN_PIN, LOW);
     digitalWrite(RIGHT_BTN_PIN, LOW);
 
-    Serial.begin(115200);
+    IrReceiver.begin(IR_INPUT_PIN, ENABLE_LED_FEEDBACK, USE_DEFAULT_FEEDBACK_LED_PIN);
 
-    IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK, USE_DEFAULT_FEEDBACK_LED_PIN);
+    #ifdef DEBUG
+        Serial.begin(115200);
+        Serial.print(F("Ready to receive IR signals at pin "));
+        Serial.println(IR_INPUT_PIN);
+    #endif
 
-    Serial.print(F("Ready to receive IR signals at pin "));
-    Serial.println(IR_RECEIVE_PIN);
 }
 
 void loop() {
@@ -44,20 +66,45 @@ void loop() {
         int isRepeat = IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT;
 
         if (IrReceiver.decodedIRData.command == 0x2 /* && !isRepeat */) {
-            Serial.println("VOL up");
+            #ifdef DEBUG
+                Serial.println(F("VOL up"));
+            #endif
             digitalWrite(LEFT_BTN_PIN, HIGH);
-            leftBtnTimer.in(BTN_DELAY, leftBtnRelease);
+            delay(BTN_PRESS_DURATION);
+            digitalWrite(LEFT_BTN_PIN, LOW);
         }
 
         if (IrReceiver.decodedIRData.command == 0x3 /* && !isRepeat */) {
-            Serial.println("VOL down");
+            #ifdef DEBUG
+                Serial.println(F("VOL down"));
+            #endif
             digitalWrite(RIGHT_BTN_PIN, HIGH);
-            rightBtnTimer.in(BTN_DELAY, rightBtnRelease);
+            delay(BTN_PRESS_DURATION);
+            digitalWrite(RIGHT_BTN_PIN, LOW);
         }
 
+        lastReceivedAt = millis();
         IrReceiver.resume();
+
     }
 
-    leftBtnTimer.tick();
-    rightBtnTimer.tick();
+    // enter sleep mode after receiving last command
+    if (millis() - lastReceivedAt > LAST_CMD_SLEEP_DELAY) {
+        power.sleep(SLEEP_FOREVER);
+        #ifdef DEBUG
+            Serial.println(F("Gone sleep untill next command from remote"));
+        #endif
+    }
+
+}
+
+/**
+ * exit sleep upon receiving signal on IR receiver
+ */
+void wakeup() {
+    lastReceivedAt = millis();
+    IrReceiver.resume();
+    #ifdef DEBUG
+        Serial.println(F("Waked up"));
+    #endif
 }
