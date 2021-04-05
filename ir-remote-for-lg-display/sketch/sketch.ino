@@ -1,7 +1,7 @@
 // https://github.com/Arduino-IRremote/Arduino-IRremote
 #include <IRremote.h>
 
-// download from https://github.com/AlexGyver/GyverLibs/tree/master/GyverPower
+// download from https://github.com/AlexGyver/GyverLibs/releases/download/GyverPower/GyverPower.zip
 // and put to ~/Documents/Arduino/libraries
 #include <GyverPower.h>
 

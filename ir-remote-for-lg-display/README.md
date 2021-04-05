@@ -16,3 +16,10 @@ Then Arduino IDE should be restarted.
 ## Diptrace Notes
 
 Used external library https://github.com/Just-AndyE/DipTrace-Adruino-Library
+
+## TODO
+
+create single board for atmega168, ir receiver, charging circuit
+
+TP4056 + DW01A
+https://asc-development.ru/articles-tp4056_kontrollere_zarjadki_li_ion_akkumuljatorov_787.html

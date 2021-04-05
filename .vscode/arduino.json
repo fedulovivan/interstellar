@@ -1,0 +1,5 @@
+{
+    "board": "arduino:avr:uno",
+    "programmer": "arduino:usbasp",
+    "sketch": "mhz19-box-new/74HC595-test/74HC595-test.ino"
+}
