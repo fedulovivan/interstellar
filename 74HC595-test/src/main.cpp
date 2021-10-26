@@ -15,7 +15,7 @@
 
 // tick period for the test sketch
 // counter update speed
-#define COUNTER_TICK_PERIOD 50
+#define COUNTER_TICK_PERIOD 10
 
 // doubled dynamic indication frequency
 #define FREQUENCY 800
@@ -46,10 +46,10 @@ uint8_t NUMBER_SYMBOLS[10] = {_0, _1, _2, _3, _4, _5, _6, _7, _8, _9};
 
 // arduino pins connected to indicator digits
 uint8_t DIGIT_PINS[TOTAL_DIGITS] = {
-    7,
-    6,
-    5,
     4,
+    5,
+    6,
+    7,
 };
 
 // global variable which stores dispayed characters
@@ -97,12 +97,15 @@ void writeSymbols(uint8_t d1, uint8_t d2, uint8_t d3, uint8_t d4, uint8_t output
 }
 
 void splitNumberIntoSymbols(int input, uint8_t output[]) {
+    uint8_t d1 = getSymbolFromNumber(input % 10);
+    uint8_t d2 = getSymbolFromNumber((input / 10) % 10);
+    uint8_t d3 = getSymbolFromNumber((input / 100) % 10);
+    uint8_t d4 = getSymbolFromNumber((input / 1000) % 10);
     writeSymbols(
-        // getSymbolFromNumber(input % 10),
-        getSymbolFromNumber((input / 10) % 10),
-        getSymbolFromNumber((input / 100) % 10),
-        getSymbolFromNumber((input / 1000) % 10),
-        _MINUS,
+        d1,
+        d2,
+        d3,
+        d4 == 0 ? _MINUS : d4,
         output
     );
 }
@@ -139,7 +142,7 @@ void setup() {
 void loop() {
 
     // if (millis() - counterTickTimer >= COUNTER_TICK_PERIOD) {
-    //     if (counter < 999) {
+    //     if (counter < 9999) {
     //         counter++;
     //     } else {
     //         counter = 0;
