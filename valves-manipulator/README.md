@@ -11,33 +11,85 @@ Note that [nodemcu-tool](https://github.com/AndiDittrich/NodeMCU-Tool) utility (
 
 ```
 johnny@mbp2015:~/Desktop/Projects/interstellar/valves-manipulator$ ./upload.sh
-4982
+file size 8924
+Checking init.lua OK
+Total: 0 warnings / 0 errors in 1 file
 [config]      ~ Project based configuration loaded
 [NodeMCU-Tool]~ Connected
-[device]      ~ Arch: esp8266 | Version: 3.0.0 | ChipID: 0x2777c | FlashID: 0x1640e0
+[device]      ~ Arch: esp8266 | Version: 3.0.0 | ChipID: 0xc1217d | FlashID: 0x1640e0
 [NodeMCU-Tool]~ Uploading "init.lua" >> "init.lua"...
 [connector]   ~ Transfer-Mode: hex
 [NodeMCU-Tool]~ File Transfer complete!
 [NodeMCU-Tool]~ disconnecting
-[config]      ~ Project based configuration loaded
-[NodeMCU-Tool]~ Connected
-[device]      ~ Arch: esp8266 | Version: 3.0.0 | ChipID: 0x2777c | FlashID: 0x1640e0
-[device]      ~ Free Disk Space: 507 KB | Total: 516 KB | 1 Files
-[device]      ~ Files stored into Flash (SPIFFS)
-[device]      ~  - init.lua (4982 Bytes)
-[NodeMCU-Tool]~ disconnecting
+OK! successfully uploded and verified size
 ```
+
+## UART console
+
+`sudo screen /dev/tty.wchusbserial1420 115200`
+exit with `Ctrl + A` then `Ctrl + D`
 
 ## Pin values
 
 *VALVE_PIN* 0 - valves open; 1 - valves closed<br/>
 *WATER_SENSOR_PIN* 0 - leakage detected; 1 - no leakage
 
+RCA for the error on attempt to attach interrupt handler for the pins with IO index >= 13:
+
+```cpp
+#define GPIO_PIN_NUM 13
+#define NUM_GPIO              GPIO_PIN_NUM
+static inline int platform_gpio_exists( unsigned pin ) { return pin < NUM_GPIO; }
+luaL_argcheck(L, platform_gpio_exists(pin) && pin>0, 1, "Invalid interrupt pin");
+```
+
+## GPIO to IO index
+```lua
+local HOT_METER_PIN = 11; -- GPIO9
+local HOT_METER_PIN = 12; -- GPIO10
+local HOT_METER_PIN = 13; -- GPIO8
+local HOT_METER_PIN = 14; -- GPIO6
+local HOT_METER_PIN = 9; -- GPIO11
+```
+
+## Set intial meter values
+
+send H100 to /VALVE/STATE/METERS_SET_ZERO
+send C100 to /VALVE/STATE/METERS_SET_ZERO
+
+## Flashing nodemcu
+
+most recent instructions on how to write nodemcu firmware to esp8266 could be found at [../mhz19-box-new/README.md]
+
 ## TODOs
 
-- (-) Button for manual management
-- (-) Use pre-compiled files
+- (-) Add build-in СР340С chip + reset sircuit
+- (-) Buttons for manual valves management
+- (-) Use pre-compiled files / LFS
+- (-) Add "Reset" button instead of "Flash LUA"
+- (+) add more powerfull 3.3v reg (LM1117DT 3.3 корпус TO-252 [https://www.chipdip.ru/product/lm1117dt-3.3-nopb])
+- (+) change valves transistor to smd version (BC337 to BC817)
 - (+) Get current state
 - (+) Connect Equation wired water leakage sensor
 - (+) Memoise last valve state and use it on boot
 - (+) Ping server
+
+## Parts list
+
+Socket types - SP13, GX16, GX12
+MIL-STD 5015 [https://aliexpress.ru/item/32620267150.html]
+
+- GX16 socket 4 pin x 4 pcs - valves [https://aliexpress.ru/item/4000145079106.html]
+- GX12 socket 3 pin x 4 pcs - water leakage sensor
+- GX12 socket 4 pin x 4 pcs - water meters
+- PG6 / PG9 IP68 cable gland x 2 pcs [https://aliexpress.ru/item/1005002584721230.html]
+- Red waterproof button PBS-33b x 2 pcs [https://aliexpress.ru/item/1005002671842887.html]
+- Green waterproof button PBS-33b x 2 pcs
+- Waterproof case x 2 pcs - [https://aliexpress.ru/item/1005001890887248.html]
+- 12v ac dc psu x 2 pcs [https://aliexpress.ru/item/33011812383.html]
+                        [https://aliexpress.ru/item/32769700877.html]
+                        [https://aliexpress.ru/item/10000317754857.html]
+                        [https://aliexpress.ru/item/32258088214.html]
+                        [https://aliexpress.ru/item/4001035491729.html]
+                        meanwell IRM-10-12
+                        hilink HLK-PM12
