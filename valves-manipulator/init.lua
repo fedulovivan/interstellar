@@ -8,8 +8,14 @@ local CONFIG = {
     WIFI_PWD = "useitatyourownrisk",
     MQTT_TOPIC_SET = "/VALVE/STATE/SET",
     MQTT_TOPIC_STATUS = "/VALVE/STATE/STATUS",
-    MQTT_TOPIC_METERS_SET_ZERO = "/VALVE/STATE/METERS_SET_ZERO",
+    MQTT_TOPIC_METERS_SET = "/VALVE/STATE/METERS_SET",
     MQTT_TOPIC_METERS_SAVE = "/VALVE/STATE/METERS_SAVE",
+};
+
+local MQTT_SUBSCRIPTIONS = {
+    [CONFIG.MQTT_TOPIC_SET] = 0,
+    [CONFIG.MQTT_TOPIC_METERS_SET] = 0,
+    [CONFIG.MQTT_TOPIC_METERS_SAVE] = 0,
 };
 
 local FILES = {
@@ -31,19 +37,16 @@ local WATER_SENSOR_PIN = 6; -- GPIO12
 local COLD_METER_PIN = 7; -- GPIO13
 local HOT_METER_PIN = 5; -- GPIO14
 local GREEN_LED_PIN = 0; -- GPIO16
--- local GREEN_LED_PIN = 4; -- GPIO2
 
--- mappings
-local valvePinValueToStringState = { ["0"] = "opened", ["1"] = "closed" };
-local leakageSensorPinValueToBooleanState = { ["0"] = "true", ["1"] = "false" };
+local VALVE_OPEN = gpio.LOW;
+local VALVE_CLOSED = gpio.HIGH;
+local WATER_SENSOR_LEAKAGE_DETECTED = gpio.LOW;
 
 -- global variables
 local coldMeterTicks = 0;
 local hotMeterTicks = 0;
 local wifiPrevStatus = 0;
-local greenLedState = false;
 local mqttIsConnected = false;
-local statusTimerTickNumber = 0;
 local waterSensorPinLastValue = nil;
 local mqttClient = nil;
 
@@ -80,47 +83,54 @@ local function restoreMeterStateFromFiles()
     end
 end;
 
-local function sendStatusUpdate()
+local function sendStatusUpdate(origin)
     if not mqttIsConnected then
         print("sendStatusUpdate: mqtt is not connected");
         return 1;
     end
     local valvePinValue = gpio.read(VALVE_PIN);
     local waterSensorPinValue = gpio.read(WATER_SENSOR_PIN);
-    local message = "{" ..
-        "\"tick\":" ..
-        tostring(statusTimerTickNumber) ..
-        ",\"leakage\":" ..
-        leakageSensorPinValueToBooleanState[tostring(waterSensorPinValue)] ..
-        ",\"valve\":" ..
-        "\"" .. valvePinValueToStringState[tostring(valvePinValue)] .. "\"" ..
-        ",\"coldMeterTicks\":" .. tostring(coldMeterTicks) ..
-        ",\"hotMeterTicks\":" .. tostring(hotMeterTicks) ..
-    "}";
+    local valvePinValueToStringState = { ["0"] = "opened", ["1"] = "closed" };
+    local leakageSensorPinValueToBooleanState = { ["0"] = "true", ["1"] = "false" };
+    local message = sjson.encode({
+        time = tmr.time(),
+        leakage = leakageSensorPinValueToBooleanState[
+            tostring(waterSensorPinValue)
+        ],
+        valve = valvePinValueToStringState[
+            tostring(valvePinValue)
+        ],
+        coldMeterTicks = coldMeterTicks,
+        hotMeterTicks = hotMeterTicks,
+        origin = origin,
+    });
     mqttClient:publish(CONFIG.MQTT_TOPIC_STATUS, message, 0, 0);
-    statusTimerTickNumber = statusTimerTickNumber + 1;
     return 0;
 end;
 
 local function coldMeterPinInterruptHandler()
     print("coldMeterPinInterruptHandler");
     coldMeterTicks = coldMeterTicks + 1;
-    sendStatusUpdate();
+    sendStatusUpdate("coldMeterPinInterruptHandler");
 end;
 
 local function hotMeterPinInterruptHandler()
     print("hotMeterPinInterruptHandler");
     hotMeterTicks = hotMeterTicks + 1;
-    sendStatusUpdate();
+    sendStatusUpdate("hotMeterPinInterruptHandler");
 end;
 
 local function saveIsClosedOnStartup()
-    file.open(FILES.IS_CLOSED_ON_STARTUP_FILE, "w");
-    file.close();
+    if not file.exists(FILES.IS_CLOSED_ON_STARTUP_FILE) then
+        file.open(FILES.IS_CLOSED_ON_STARTUP_FILE, "w");
+        file.close();
+    end;
 end;
 
 local function resetIsClosedOnStartup()
-    file.remove(FILES.IS_CLOSED_ON_STARTUP_FILE);
+    if file.exists(FILES.IS_CLOSED_ON_STARTUP_FILE) then
+        file.remove(FILES.IS_CLOSED_ON_STARTUP_FILE);
+    end;
 end;
 
 local function goOnline()
@@ -135,26 +145,24 @@ local function goOffline()
     mqttIsConnected = false;
     TIMERS.greenLedBlinkTimer:stop();
     TIMERS.sendStatusUpdateTimer:stop();
+    TIMERS.mqttReconnectTimer:stop();
     gpio.write(GREEN_LED_PIN, gpio.HIGH); -- HIGH means OFF led
-end;
-
-local function onMqttServerConnFail(client, reason)
-    print("onMqttServerConnFail: reason=" .. tostring(reason));
-    goOffline();
 end;
 
 local function openValves()
     print("openValves");
-    gpio.write(VALVE_PIN, gpio.LOW);
+    gpio.write(VALVE_PIN, VALVE_OPEN);
     resetIsClosedOnStartup();
-    sendStatusUpdate();
+    sendStatusUpdate("openValves");
 end;
 
-local function closeValves()
+local function closeValves(withStatusUpdate)
     print("closeValves");
-    gpio.write(VALVE_PIN, gpio.HIGH);
+    gpio.write(VALVE_PIN, VALVE_CLOSED);
+    if withStatusUpdate then
+        sendStatusUpdate("closeValves");
+    end;
     saveIsClosedOnStartup();
-    sendStatusUpdate();
 end;
 
 local function handleMqttMessage(client, topic, data)
@@ -167,33 +175,36 @@ local function handleMqttMessage(client, topic, data)
             openValves();
         end
         if data == COMMANDS.CLOSE_CMD then
-            closeValves();
+            closeValves(false);
         end
-    end
 
-    -- handle meter set ticks zero level
-    -- data format is "H21001" or "C34077"
+    -- ability to set meter values
+    -- data string is "H21001" or "C34077"
     -- H21001 - set hot meter ticks to 21001
     -- C34077 - set cold meter ticks to 34077
-    if topic == CONFIG.MQTT_TOPIC_METERS_SET_ZERO then
+    elseif topic == CONFIG.MQTT_TOPIC_METERS_SET then
         local type = string.sub(data, 1, 1);
         local value = tonumber(string.sub(data, 2));
         if type == "H" and value ~= nil then
             print("value of hotMeterTicks updated from " .. hotMeterTicks .. " to " .. value);
             hotMeterTicks = value;
             saveMeterStateToFiles();
-            sendStatusUpdate();
-        end
-        if type == "C" and value ~= nil then
+            sendStatusUpdate("handleMqttMessage");
+        elseif type == "C" and value ~= nil then
             print("value of coldMeterTicks updated from " .. coldMeterTicks .. " to " .. value);
             coldMeterTicks = value;
             saveMeterStateToFiles();
-            sendStatusUpdate();
+            sendStatusUpdate("handleMqttMessage");
+        else
+            print("failed to handle message data");
         end
-    end
 
-    if topic == CONFIG.MQTT_TOPIC_METERS_SAVE then
+    -- ability to toggle saveMeterStateToFiles
+    elseif topic == CONFIG.MQTT_TOPIC_METERS_SAVE then
         saveMeterStateToFiles();
+
+    else
+        print("unknown mqtt topic");
     end
 
 end
@@ -202,29 +213,26 @@ local function connectToMqtt()
     mqttClient:connect(
         CONFIG.MQTT_BROKER_IP,
         CONFIG.MQTT_BROKER_PORT,
+        -- secure
         false,
-        function()
+        -- connection succeeded
+        function ()
             print("connected to mqtt server ip=" .. CONFIG.MQTT_BROKER_IP);
-            mqttClient:on("message", handleMqttMessage)
+            mqttClient:on("message", handleMqttMessage);
             mqttClient:on("offline", goOffline);
             mqttClient:subscribe(
-                {
-                    [CONFIG.MQTT_TOPIC_SET] = 0,
-                    [CONFIG.MQTT_TOPIC_METERS_SET_ZERO] = 0,
-                    [CONFIG.MQTT_TOPIC_METERS_SAVE] = 0,
-                },
+                MQTT_SUBSCRIPTIONS,
                 function()
-                    print(
-                        "mqtt subscribed to " ..
-                        CONFIG.MQTT_TOPIC_SET .. ", " ..
-                        CONFIG.MQTT_TOPIC_METERS_SET_ZERO .. ", " ..
-                        CONFIG.MQTT_TOPIC_METERS_SAVE
-                    );
+                    print("mqtt subscribed");
                     goOnline();
                 end
-            )
+            );
         end,
-        onMqttServerConnFail
+        -- connection failed
+        function (client, reason)
+            print("mqttClient:connect failed. reason=" .. tostring(reason));
+            goOffline();
+        end
     );
 end;
 
@@ -262,11 +270,11 @@ mqttClient = mqtt.Client(
 );
 
 TIMERS.greenLedBlinkTimer:register(500, tmr.ALARM_AUTO, function()
+    local isHigh = gpio.read(GREEN_LED_PIN) == gpio.HIGH;
     gpio.write(
         GREEN_LED_PIN,
-        greenLedState and gpio.LOW or gpio.HIGH
+        isHigh and gpio.LOW or gpio.HIGH
     );
-    greenLedState = not greenLedState;
 end);
 
 TIMERS.mqttReconnectTimer:register(5000, tmr.ALARM_AUTO, function()
@@ -289,21 +297,24 @@ TIMERS.wifiReconnectTimer:register(5000, tmr.ALARM_AUTO, function()
     wifiPrevStatus = wifi.sta.status();
 end);
 
--- send status updates
-TIMERS.sendStatusUpdateTimer:register(STATUS_UPDATE_INTERVAL, tmr.ALARM_AUTO, sendStatusUpdate);
+-- send status updates periodically
+TIMERS.sendStatusUpdateTimer:register(STATUS_UPDATE_INTERVAL, tmr.ALARM_AUTO, function()
+    sendStatusUpdate("sendStatusUpdateTimer");
+end);
 
 -- poll the water leakage pin state and
 -- 1. close valves if leakage was detected
 -- 2. send update if value has changed
 TIMERS.pollWaterSensorTimer:register(1000, tmr.ALARM_AUTO, function()
-    local pinValue = gpio.read(WATER_SENSOR_PIN);
-    if pinValue == 0 then
-        closeValves();
+    local waterSensorPinValue = gpio.read(WATER_SENSOR_PIN);
+    local valvePinValue = gpio.read(VALVE_PIN);
+    if waterSensorPinValue == WATER_SENSOR_LEAKAGE_DETECTED and valvePinValue == VALVE_OPEN then
+        closeValves(false);
     end
-    if waterSensorPinLastValue ~= pinValue then
-        sendStatusUpdate();
+    if waterSensorPinLastValue ~= waterSensorPinValue then
+        sendStatusUpdate("waterSensorPinLastValue");
     end
-    waterSensorPinLastValue = pinValue;
+    waterSensorPinLastValue = waterSensorPinValue;
 end);
 
 -- periodically save meter states to file

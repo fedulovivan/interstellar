@@ -67,6 +67,7 @@ most recent instructions on how to write nodemcu firmware to esp8266 could be fo
 - (-) Buttons for manual valves management
 - (-) Use pre-compiled files / LFS
 - (-) Add "Reset" button instead of "Flash LUA"
+- (-) Use sjson in lua sketch
 - (+) add more powerfull 3.3v reg (LM1117DT 3.3 корпус TO-252 [https://www.chipdip.ru/product/lm1117dt-3.3-nopb])
 - (+) change valves transistor to smd version (BC337 to BC817)
 - (+) Get current state

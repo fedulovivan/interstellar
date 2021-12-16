@@ -8,7 +8,7 @@ esp8266 flashed with latest nodemcu. Firmware is written on lua. CO2 sensor is m
 1. install flashing tool `pip install esptool`
 1. build fresh firmware binary with on https://nodemcu-build.com/
 1. power esp8266 with GPOI0 connected to ground
-1. flash `esptool.py --baud 115200 --port /dev/tty.wchusbserial1420 write_flash 0x0000 ~/Downloads/nodemcu-dev-10-modules-2021-02-24-15-37-35-integer.bin`
+1. flash `esptool.py --baud 115200 --port /dev/tty.wchusbserial1420 write_flash 0x0000 ~/Downloads/nodemcu-dev-11-modules-2021-12-16-18-33-39-integer.bin`
 
 ## Uploading lua script
 

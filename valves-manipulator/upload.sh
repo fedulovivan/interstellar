@@ -27,7 +27,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-UPLOADED_SIZE=$(echo "$FSINFO" | grep $FILE_NAME | grep -Eo "[0-9]{4}")
+UPLOADED_SIZE=$(echo "$FSINFO" | grep $FILE_NAME | grep -Eo "[0-9]{5}")
 if [[ "$INITIAL_SIZE" != "$UPLOADED_SIZE" ]]; then
     echo "FAILED... uploaded size $UPLOADED_SIZE does not equal to intial $INITIAL_SIZE"
     exit 1
