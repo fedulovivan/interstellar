@@ -47,7 +47,7 @@ local coldMeterTicks = 0;
 local hotMeterTicks = 0;
 local wifiPrevStatus = 0;
 local mqttIsConnected = false;
-local waterSensorPinLastValue = nil;
+local waterSensorPinLastValue = gpio.HIGH;
 local mqttClient = nil;
 
 -- timers
@@ -85,21 +85,15 @@ end;
 
 local function sendStatusUpdate(origin)
     if not mqttIsConnected then
-        print("sendStatusUpdate: mqtt is not connected");
+        print("sendStatusUpdate: mqtt not yet connected (origin=" .. origin .. ")");
         return 1;
     end
-    local valvePinValue = gpio.read(VALVE_PIN);
     local waterSensorPinValue = gpio.read(WATER_SENSOR_PIN);
-    local valvePinValueToStringState = { ["0"] = "opened", ["1"] = "closed" };
-    local leakageSensorPinValueToBooleanState = { ["0"] = "true", ["1"] = "false" };
+    local valvePinValue = gpio.read(VALVE_PIN);
     local message = sjson.encode({
         time = tmr.time(),
-        leakage = leakageSensorPinValueToBooleanState[
-            tostring(waterSensorPinValue)
-        ],
-        valve = valvePinValueToStringState[
-            tostring(valvePinValue)
-        ],
+        leakage = waterSensorPinValue == WATER_SENSOR_LEAKAGE_DETECTED,
+        valve = valvePinValue == VALVE_OPEN and "opened" or "closed",
         coldMeterTicks = coldMeterTicks,
         hotMeterTicks = hotMeterTicks,
         origin = origin,
@@ -156,33 +150,34 @@ local function openValves()
     sendStatusUpdate("openValves");
 end;
 
-local function closeValves(withStatusUpdate)
+local function closeValves(--[[ withStatusUpdate ]])
     print("closeValves");
     gpio.write(VALVE_PIN, VALVE_CLOSED);
-    if withStatusUpdate then
-        sendStatusUpdate("closeValves");
-    end;
+    -- if withStatusUpdate then
+    -- end;
+    sendStatusUpdate("closeValves");
     saveIsClosedOnStartup();
 end;
 
 local function handleMqttMessage(client, topic, data)
-    print("mqtt message=" .. topic .. " data=" .. data);
+    print("mqtt message=" .. tostring(topic) .. " data=" .. tostring(data));
 
     -- handle mqtt command and update valves state
     -- data is either "open" or "close"
-    if topic == CONFIG.MQTT_TOPIC_SET then
+    if topic == CONFIG.MQTT_TOPIC_SET and data ~= nil then
         if data == COMMANDS.OPEN_CMD then
             openValves();
-        end
-        if data == COMMANDS.CLOSE_CMD then
-            closeValves(false);
+        elseif data == COMMANDS.CLOSE_CMD then
+            closeValves();
+        else
+            print("unexpected data");
         end
 
     -- ability to set meter values
     -- data string is "H21001" or "C34077"
     -- H21001 - set hot meter ticks to 21001
     -- C34077 - set cold meter ticks to 34077
-    elseif topic == CONFIG.MQTT_TOPIC_METERS_SET then
+    elseif topic == CONFIG.MQTT_TOPIC_METERS_SET and data ~= nil then
         local type = string.sub(data, 1, 1);
         local value = tonumber(string.sub(data, 2));
         if type == "H" and value ~= nil then
@@ -196,7 +191,7 @@ local function handleMqttMessage(client, topic, data)
             saveMeterStateToFiles();
             sendStatusUpdate("handleMqttMessage");
         else
-            print("failed to handle message data");
+            print("unexpected data");
         end
 
     -- ability to toggle saveMeterStateToFiles
@@ -204,7 +199,7 @@ local function handleMqttMessage(client, topic, data)
         saveMeterStateToFiles();
 
     else
-        print("unknown mqtt topic");
+        print("unexpected topic");
     end
 
 end
@@ -238,7 +233,7 @@ end;
 
 --- START MAIN
 
-print("valves manipulator starting..");
+print("valves manipulator starting...");
 
 restoreMeterStateFromFiles();
 
@@ -291,7 +286,7 @@ TIMERS.wifiReconnectTimer:register(5000, tmr.ALARM_AUTO, function()
             TIMERS.mqttReconnectTimer:start();
         end
     else
-        print("not connected to wifi..");
+        print("not connected to wifi...");
         goOffline();
     end
     wifiPrevStatus = wifi.sta.status();
@@ -309,7 +304,7 @@ TIMERS.pollWaterSensorTimer:register(1000, tmr.ALARM_AUTO, function()
     local waterSensorPinValue = gpio.read(WATER_SENSOR_PIN);
     local valvePinValue = gpio.read(VALVE_PIN);
     if waterSensorPinValue == WATER_SENSOR_LEAKAGE_DETECTED and valvePinValue == VALVE_OPEN then
-        closeValves(false);
+        closeValves(--[[ false ]]);
     end
     if waterSensorPinLastValue ~= waterSensorPinValue then
         sendStatusUpdate("waterSensorPinLastValue");

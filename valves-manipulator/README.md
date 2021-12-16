@@ -75,6 +75,10 @@ most recent instructions on how to write nodemcu firmware to esp8266 could be fo
 - (+) Memoise last valve state and use it on boot
 - (+) Ping server
 
+## Test Cases
+
+- TODO
+
 ## Parts list
 
 Socket types - SP13, GX16, GX12
