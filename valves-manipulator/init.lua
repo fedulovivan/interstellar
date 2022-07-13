@@ -139,7 +139,6 @@ local function goOffline()
     mqttIsConnected = false;
     TIMERS.greenLedBlinkTimer:stop();
     TIMERS.sendStatusUpdateTimer:stop();
-    TIMERS.mqttReconnectTimer:stop();
     gpio.write(GREEN_LED_PIN, gpio.HIGH); -- HIGH means OFF led
 end;
 

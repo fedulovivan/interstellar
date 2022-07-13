@@ -55,8 +55,8 @@ local HOT_METER_PIN = 9; -- GPIO11
 
 ## Set intial meter values via MQTT
 
-send H100 to /VALVE/STATE/METERS_SET_ZERO
-send C100 to /VALVE/STATE/METERS_SET_ZERO
+send H28147 to /VALVE/STATE/METERS_SET
+send C32684 to /VALVE/STATE/METERS_SET
 
 ## Flashing nodemcu
 
@@ -68,12 +68,18 @@ also instructions on how to write nodemcu firmware to esp8266 could be found at 
 
 ## TODOs
 
-- (-) fix issue with reconnection to mqtt server
-- (-) software debouncing (hysteresis) for water leakage sennsor handler
+- (-) document mqtt api (published topics, subscribed to topics)
+- (-) add version file and ability to get it via mqtt
+- (-) implement startup page to setup mtqtt and wifi settings
+- (-) add gidrolock valves pins information on silk layer
+- (-) implement a safe way to solder AC wires
+- (-) add jumper to be able to disconnect meanwell psu and connect external power (to DC line +15v)
+- (-) software debouncing (hysteresis) for wired water leakage sennsor handler to avoid iimediate sending "ceased alarm" message
 - (-) Add build-in СР340С chip + reset sircuit
 - (-) Buttons for manual valves management
 - (-) Use pre-compiled files / LFS
 
+- (+) fix issue with absence of reconnection to mqtt server
 - (+) Add "Reset" button instead of "Flash LUA"
 - (+) Use sjson in lua sketch
 - (+) add more powerfull 3.3v reg (LM1117DT 3.3 корпус TO-252 [https://www.chipdip.ru/product/lm1117dt-3.3-nopb])
