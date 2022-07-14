@@ -79,6 +79,7 @@ also instructions on how to write nodemcu firmware to esp8266 could be found at 
 - (-) Buttons for manual valves management
 - (-) Use pre-compiled files / LFS
 
+- (+) add box unique identifier
 - (+) fix issue with absence of reconnection to mqtt server
 - (+) Add "Reset" button instead of "Flash LUA"
 - (+) Use sjson in lua sketch

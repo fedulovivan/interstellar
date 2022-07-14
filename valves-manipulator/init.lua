@@ -1,15 +1,17 @@
+local CHIPID = node.chipid();
+
 local CONFIG = {
     MQTT_BROKER_IP = "192.168.88.188",
     MQTT_BROKER_PORT = 1883,
-    MQTT_CLIENT_ID = "esp8266-valves-manipulator",
+    MQTT_CLIENT_ID = "esp8266-valves-manipulator-" .. CHIPID,
     MQTT_BROKER_USER = "mosquitto",
     MQTT_BROKER_PWD = "5Ysm3jAsVP73nva",
     WIFI_SSID = "wifi domru ivanf",
     WIFI_PWD = "useitatyourownrisk",
-    MQTT_TOPIC_SET = "/VALVE/STATE/SET",
-    MQTT_TOPIC_STATUS = "/VALVE/STATE/STATUS",
-    MQTT_TOPIC_METERS_SET = "/VALVE/STATE/METERS_SET",
-    MQTT_TOPIC_METERS_SAVE = "/VALVE/STATE/METERS_SAVE",
+    MQTT_TOPIC_SET = "/VALVE/" .. CHIPID .. "/STATE/SET",
+    MQTT_TOPIC_STATUS = "/VALVE/" .. CHIPID .. "/STATE/STATUS",
+    MQTT_TOPIC_METERS_SET = "/VALVE/" .. CHIPID .. "/STATE/METERS_SET",
+    MQTT_TOPIC_METERS_SAVE = "/VALVE/" .. CHIPID .. "/STATE/METERS_SAVE",
 };
 
 local MQTT_SUBSCRIPTIONS = {
@@ -233,6 +235,8 @@ end;
 --- START MAIN
 
 print("valves manipulator starting...");
+
+print("chipid=" .. CHIPID);
 
 restoreMeterStateFromFiles();
 
