@@ -99,6 +99,7 @@ local function sendStatusUpdate(origin)
         coldMeterTicks = coldMeterTicks,
         hotMeterTicks = hotMeterTicks,
         origin = origin,
+        chipid = CHIPID,
     });
     mqttClient:publish(CONFIG.MQTT_TOPIC_STATUS, message, 0, 0);
     return 0;
