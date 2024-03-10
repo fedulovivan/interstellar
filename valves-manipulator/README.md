@@ -68,15 +68,21 @@ also instructions on how to write nodemcu firmware to esp8266 could be found at 
 
 ## TODOs
 
+- (-) fix potential overflow for tmr.time()
+- (-) make STATUS_UPDATE_INTERVAL value configurable
+- (-) saveMeterStateToFiles only if last value has been changed
+- (-) implement blink codes
+- (-) avoid hadcoding connection settings for mqtt server and wifi
+- (-) add to schematics and update pcb for 10k pull resistor for "wired water leakage sennsor"
+- (-) software or hardware debouncing (hysteresis) for "wired water leakage sennsor" handler to avoid iimediate sending "ceased alarm" message
 - (-) document mqtt api (published topics, subscribed to topics)
 - (-) add version file and ability to get it via mqtt
 - (-) implement startup page to setup mtqtt and wifi settings
 - (-) add gidrolock valves pins information on silk layer
 - (-) implement a safe way to solder AC wires
 - (-) add jumper to be able to disconnect meanwell psu and connect external power (to DC line +15v)
-- (-) software debouncing (hysteresis) for wired water leakage sennsor handler to avoid iimediate sending "ceased alarm" message
-- (-) Add build-in СР340С chip + reset sircuit
-- (-) Buttons for manual valves management
+- (-) Add build-in СР340С chip + reset circuit
+- (-) hardware buttons for manual valves management
 - (-) Use pre-compiled files / LFS
 
 - (+) add box unique identifier
