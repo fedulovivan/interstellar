@@ -1,38 +1,51 @@
-#/bin/bash
+#!/bin/bash
 
-FILE_NAME="init.lua"
+# funcctions
+ensure() {
+    cmd=$1
+    command -v "$cmd" >/dev/null 2>&1 || { echo >&2 "$cmd should be installed"; exit 1; }
+}
 
-# step 1: print file size to console
-INITIAL_SIZE=`stat -f%z $FILE_NAME`
-echo "file size $INITIAL_SIZE"
+# disable nodejs warnings
+export NODE_NO_WARNINGS=1
+
+# main lua program
+main_lua="init.lua"
+
+# sanity checks
+ensure "stat"
+ensure "jq"
+ensure "luacheck"
+ensure "nodemcu-tool"
+
+# step 1: save and print file size to console
+orig_size=$(stat -f%z $main_lua)
+echo "$main_lua size is ${orig_size} bytes"
 
 # step 2: verify file with luacheck
-luacheck $FILE_NAME
-if [ $? -ne 0 ]; then
-    echo 'luacheck failed'
+if ! luacheck $main_lua; then
+    echo "luacheck failed"
     exit 1
 fi
 
 # step 3: upload file to esp8266
-nodemcu-tool upload $FILE_NAME
+if ! nodemcu-tool upload $main_lua; then
+    echo "upload to esp8266 failed"
+    exit 1
+fi
+
+# step 4: read filesystem information 
+# uploaded filed size is expected to be equal to the one, obtained at step 1
+# prompt: using jq find a size of file with name init.lua from the json
+uploaded_size=$(nodemcu-tool fsinfo --json | jq -c '.files[] | select(.name == "init.lua") | .size')
 if [ $? -ne 0 ]; then
-    echo 'upload to nodemcu failed'
+    echo "reading esp8266 filesystem failed"
+    exit 1
+fi
+if [[ "$orig_size" != "$uploaded_size" ]]; then
+    echo "uploaded size $uploaded_size does not equal to original $orig_size failed"
     exit 1
 fi
 
-# step 4: read filesystem information (uploaded filed size is expected to be equal to the one printed at step 1)
-FSINFO=$(nodemcu-tool fsinfo)
-if [ $? -ne 0 ]; then
-    echo 'reading nodemcu filesystem failed'
-    exit 1
-fi
-
-UPLOADED_SIZE=$(echo "$FSINFO" | grep $FILE_NAME | grep -Eo "[0-9]{5}")
-if [[ "$INITIAL_SIZE" != "$UPLOADED_SIZE" ]]; then
-    echo "FAILED... uploaded size $UPLOADED_SIZE does not equal to intial $INITIAL_SIZE"
-    exit 1
-fi
-
-echo "OK! successfully uploded and verified size"
-
+echo "OK! Successfully uploded and verified size"
 exit 0

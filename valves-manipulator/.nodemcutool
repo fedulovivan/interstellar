@@ -1,6 +1,6 @@
 {
     "baudrate": "115200",
-    "port": "/dev/tty.wchusbserial1420",
+    "port": "/dev/tty.usbserial-110",
     "connectionDelay": 300,
     "compile": false,
     "minify": false,

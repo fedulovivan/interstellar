@@ -6,10 +6,15 @@ Later was added wired water lakage sensor (branded as Equation and sold by Leroy
 
 ## Flashing
 
-Run `./upload.sh`<br>
-Note that [nodemcu-tool](https://github.com/AndiDittrich/NodeMCU-Tool) utility (last tested with v3.2.1) should be installed in advance with `npm install nodemcu-tool -g`
+Prerequicities:
 
-```
+- install [luacheck](https://github.com/mpeterv/luacheck) with `brew install luacheck`
+- install [nodemcu-tool](https://github.com/AndiDittrich/NodeMCU-Tool) with `yarn global add nodemcu-tool@3.2.1`
+- install [jq](https://jqlang.org/)
+
+run `./upload.sh` and check results:
+
+```shell
 johnny@mbp2015:~/Desktop/Projects/interstellar/valves-manipulator$ ./upload.sh
 file size 8924
 Checking init.lua OK
@@ -55,7 +60,7 @@ local HOT_METER_PIN = 9; -- GPIO11
 
 ## Set intial meter values via MQTT
 
-send H28147 to /VALVE/STATE/METERS_SET
+send H28147 to /VALVE/STATE/METERS_SET<br>
 send C32684 to /VALVE/STATE/METERS_SET
 
 ## Flashing nodemcu
@@ -68,6 +73,8 @@ also instructions on how to write nodemcu firmware to esp8266 could be found at 
 
 ## TODOs
 
+- (-) add build information
+- (-) make base topic configurable, remove leading slash (get rid of hardcoded /VALVE value)
 - (-) fix potential overflow for tmr.time()
 - (-) make STATUS_UPDATE_INTERVAL value configurable
 - (-) saveMeterStateToFiles only if last value has been changed
@@ -86,7 +93,7 @@ also instructions on how to write nodemcu firmware to esp8266 could be found at 
 - (-) Use pre-compiled files / LFS
 
 - (+) add box unique identifier
-- (+) fix issue with absence of reconnection to mqtt server
+- (+) fix issue with no reconnection to mqtt server
 - (+) Add "Reset" button instead of "Flash LUA"
 - (+) Use sjson in lua sketch
 - (+) add more powerfull 3.3v reg (LM1117DT 3.3 корпус TO-252 [https://www.chipdip.ru/product/lm1117dt-3.3-nopb])
