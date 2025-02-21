@@ -1,5 +1,7 @@
 {
     "recommendations": [
-        "sumneko.lua"
+        "sumneko.lua",
+        "dwenegar.vscode-luacheck",
+        "timonwong.shellcheck"
     ]
 }

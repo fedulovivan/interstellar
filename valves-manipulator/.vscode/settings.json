@@ -1,5 +1,10 @@
 {
-    "Lua.telemetry.enable": false,
-    "Lua.diagnostics.enable": false,
-    "Lua.diagnostics.globals": ["gpio", "file", "wifi", "mqtt", "tmr", "sjson"]
+    "Lua.diagnostics.enable": true,
+    "Lua.diagnostics.globals": ["gpio", "file", "wifi", "mqtt", "tmr", "sjson", "node", "net", "srv"],
+    "shellcheck.enable": true,
+    "shellcheck.customArgs": ["-x"],
+    "files.associations": {
+        "*.json.sample": "json",
+        ".nodemcutool": "json"
+    },    
 }

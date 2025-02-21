@@ -2,37 +2,61 @@
 ## Description
 
 ESP8266-based box for remote manipulating of Gidrolock water valves.<br/>
-Later was added wired water lakage sensor (branded as Equation and sold by Leroymerlin) and connection to water meters
+Later was added wired water lakage sensor (branded as Equation and sold by Leroymerlin) and connection to water meters.
+All software/firmware related files is located in [firmware](./firmware/) folder.
 
-## Flashing
+## Development
 
-Prerequicities:
+For the lua extension (sumneko.lua) working properly, current folder should be opened in vscode isolately (not to be browsed as as part of the interstellar folder)
 
-- install [luacheck](https://github.com/mpeterv/luacheck) with `brew install luacheck`
-- install [nodemcu-tool](https://github.com/AndiDittrich/NodeMCU-Tool) with `yarn global add nodemcu-tool@3.2.1`
-- install [jq](https://jqlang.org/)
+## Flashing nodemcu firmware
 
-run `./upload.sh` and check results:
+run `flash.sh`
+
+also old instructions on how to write nodemcu firmware to esp8266 could be found at [../mhz19-box-new/README.md]
+
+## Uploading lua scripts
+
+Install prerequisites:
+
+- [jq](https://jqlang.org/) with `brew install jq`
+- [luacheck](https://github.com/mpeterv/luacheck) with `brew install luacheck`
+- [nodemcu-tool](https://github.com/AndiDittrich/NodeMCU-Tool) with `yarn global add nodemcu-tool@3.2.1`
+- [esptool](https://github.com/espressif/esptool) with `pip install esptool` then need to re-open terminal
+
+Set proper usb serial device in .nodemcutool config;
+
+Run `./upload.sh` and check the results:
 
 ```shell
-johnny@mbp2015:~/Desktop/Projects/interstellar/valves-manipulator$ ./upload.sh
-file size 8924
-Checking init.lua OK
-Total: 0 warnings / 0 errors in 1 file
+~/Desktop/Projects/interstellar/valves-manipulator/firmware (master*) » ./upload.sh                                                                                                             1 ↵ ivanf@mbp2021
+Prerequisites ... OK
+Checking init.lua                                 OK
+Checking main.lua                                 OK
+Checking wifi.lua                                 OK
+Total: 0 warnings / 0 errors in 3 files
+Checked sources ... OK
 [config]      ~ Project based configuration loaded
 [NodeMCU-Tool]~ Connected
-[device]      ~ Arch: esp8266 | Version: 3.0.0 | ChipID: 0xc1217d | FlashID: 0x1640e0
-[NodeMCU-Tool]~ Uploading "init.lua" >> "init.lua"...
+[device]      ~ Arch: esp8266 | Version: 3.0.0 | ChipID: 0x5982 | FlashID: 0x164068
+[NodeMCU-Tool]~ Uploading "version.txt" >> "version.txt"...
 [connector]   ~ Transfer-Mode: hex
-[NodeMCU-Tool]~ File Transfer complete!
+[NodeMCU-Tool]~ Uploading "config.json" >> "config.json"...
+[NodeMCU-Tool]~ Uploading "init.lua" >> "init.lua"...
+[NodeMCU-Tool]~ Uploading "main.lua" >> "main.lua"...
+[NodeMCU-Tool]~ Uploading "wifi.lua" >> "wifi.lua"...
+[NodeMCU-Tool]~ Bulk File Transfer complete!
 [NodeMCU-Tool]~ disconnecting
-OK! successfully uploded and verified size
+Files uploaded ... OK
+Size validated ... OK
+Successfully uploded and validated all files
 ```
 
-## UART console
+## Debugging / uart console / terminal
 
-`sudo screen /dev/tty.wchusbserial1420 115200`
-exit with `Ctrl + A` then `Ctrl + D`
+All log messages printed from application could be viewed via uart, so run the following script to open terminal:
+
+`./terminal.sh`
 
 ## Pin values
 
@@ -63,35 +87,29 @@ local HOT_METER_PIN = 9; -- GPIO11
 send H28147 to /VALVE/STATE/METERS_SET<br>
 send C32684 to /VALVE/STATE/METERS_SET
 
-## Flashing nodemcu
-
-- press "Flash Nodemcu" button on board
-- power board
-- run `./flash-nodemcu.sh`
-
-also instructions on how to write nodemcu firmware to esp8266 could be found at [../mhz19-box-new/README.md]
-
 ## TODOs
 
-- (-) add build information
-- (-) make base topic configurable, remove leading slash (get rid of hardcoded /VALVE value)
-- (-) fix potential overflow for tmr.time()
-- (-) make STATUS_UPDATE_INTERVAL value configurable
-- (-) saveMeterStateToFiles only if last value has been changed
+- (-) try build own https://github.com/nodemcu/nodemcu-firmware and LFS
 - (-) implement blink codes
-- (-) avoid hadcoding connection settings for mqtt server and wifi
-- (-) add to schematics and update pcb for 10k pull resistor for "wired water leakage sennsor"
-- (-) software or hardware debouncing (hysteresis) for "wired water leakage sennsor" handler to avoid iimediate sending "ceased alarm" message
+- (-) design a way to enter setup mode, need some access on hardware level (like reset button), or use some timeout after startup
 - (-) document mqtt api (published topics, subscribed to topics)
-- (-) add version file and ability to get it via mqtt
-- (-) implement startup page to setup mtqtt and wifi settings
+- ---
+- (-) add fuse and varistor (see [./docs/psu-typical-application.webp] and https://aliexpress.ru/item/4001035491729.html)
+- (-) use wemos d1 mini as base module instead of bare esp-12 + ср340с circuit AKA add build-in СР340С chip + reset circuit
+- (-) add to schematics and update pcb for 10k pull resistor for "wired water leakage sennsor"
+- (-) software or hardware debouncing (hysteresis) for "wired water leakage sensor" handler to avoid iimediate sending "ceased alarm" message
 - (-) add gidrolock valves pins information on silk layer
 - (-) implement a safe way to solder AC wires
 - (-) add jumper to be able to disconnect meanwell psu and connect external power (to DC line +15v)
-- (-) Add build-in СР340С chip + reset circuit
-- (-) hardware buttons for manual valves management
-- (-) Use pre-compiled files / LFS
-
+- (-) add hardware buttons for manual valves management
+- ---
+- (+) fix potential overflow for tmr.time() -- should not be the case, 31 bits to store seconds should be enough for 68 years, same question arose here https://www.esp8266.com/viewtopic.php?p=58046
+- (+) invoke saveMeterStateToFiles only if last value has been changed
+- (+) implement startup page to setup mtqtt and wifi settings; create separate script which is able to receive post request with config file and save it AKA avoid hadcoding connection settings for mqtt server and wifi https://blog.avislab.com/nodemcu-web/; https://radioprog.ru/post/866
+- (+) add build information (git commit) AKA add version file and ability to get it via mqtt 
+- (+) use pre-compiled files - no sence to use this, since nodemcu expects init.lua as entrypoint and do not accept init.lc, also compilation is anyway performed directly on device after uploading source file
+- (+) read variables from config.json
+- (+) make base topic configurable, remove leading slash (get rid of hardcoded /VALVE value)
 - (+) add box unique identifier
 - (+) fix issue with no reconnection to mqtt server
 - (+) Add "Reset" button instead of "Flash LUA"
@@ -102,10 +120,8 @@ also instructions on how to write nodemcu firmware to esp8266 could be found at 
 - (+) Connect Equation wired water leakage sensor
 - (+) Memoise last valve state and use it on boot
 - (+) Ping server
-
-## Test Cases
-
-- TODO
+- ---
+- (?) make STATUS_UPDATE_INTERVAL value configurable
 
 ## Parts list
 
