@@ -1,5 +1,5 @@
 
-local TOPIC_MANAGE = string.format("%s/%s/manage", CONFIG.MQTT_TOPIC_BASE, CHIPID)
+local TOPIC_CMD = string.format("%s/%s/cmd", CONFIG.MQTT_TOPIC_BASE, CHIPID)
 local TOPIC_STATUS = string.format("%s/%s/status", CONFIG.MQTT_TOPIC_BASE, CHIPID)
 local TOPIC_INIT = string.format("%s/%s/init", CONFIG.MQTT_TOPIC_BASE, CHIPID)
 local TOPIC_LOG = string.format("%s/%s/log", CONFIG.MQTT_TOPIC_BASE, CHIPID)
@@ -8,7 +8,7 @@ local TOPIC_METERS_SAVE = string.format("%s/%s/meters/save", CONFIG.MQTT_TOPIC_B
 local TOPIC_ENTER_SETUP = string.format("%s/%s/enter-setup", CONFIG.MQTT_TOPIC_BASE, CHIPID)
 
 local SUBSCRIPTIONS = {
-    [TOPIC_MANAGE] = 0,
+    [TOPIC_CMD] = 0,
     [TOPIC_METERS_UPD] = 0,
     [TOPIC_METERS_SAVE] = 0,
     [TOPIC_ENTER_SETUP] = 0,
@@ -139,7 +139,7 @@ local function goOnline()
         CONFIG = CONFIG,
         MQTT_CLIENT_ID = MQTT_CLIENT_ID,
         TOPICS = {
-            TOPIC_MANAGE,
+            TOPIC_CMD,
             TOPIC_STATUS,
             TOPIC_INIT,
             TOPIC_METERS_UPD,
@@ -177,7 +177,7 @@ local function handleMqttMessage(client, topic, data)
 
     -- handle mqtt command and update valves state
     -- data is either "open" or "close"
-    if topic == TOPIC_MANAGE and data ~= nil then
+    if topic == TOPIC_CMD and data ~= nil then
         if data == OPEN_CMD then
             openValves();
         elseif data == CLOSE_CMD then

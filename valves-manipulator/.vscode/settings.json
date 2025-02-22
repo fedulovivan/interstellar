@@ -5,6 +5,7 @@
     "shellcheck.customArgs": ["-x"],
     "files.associations": {
         "*.json.sample": "json",
-        ".nodemcutool": "json"
+        ".nodemcutool": "json",
+        "*.lua.*": "lua"
     },    
 }

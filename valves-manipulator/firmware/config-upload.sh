@@ -5,4 +5,4 @@ source "$PWD/bootstrap.sh"
 
 ensure-dep nodemcu-tool
 
-nodemcu-tool upload config.json
+nodemcu-tool upload config.json setup-completed.txt
