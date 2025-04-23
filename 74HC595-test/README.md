@@ -2,8 +2,12 @@
 
 Initially was a sandbox for learning:
 - 7 segment display dynamic indication
-- working with 74hc595 shif register
+- working with 74hc595 shift register
 - arduino platformio project
+
+### Flashing
+
+Project is configured for flashing atmel 328p via ISP (separate USP ISP programmer device)
 
 ### 7 segment led display articles
 
