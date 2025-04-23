@@ -89,6 +89,13 @@ send C32684 to /VALVE/STATE/METERS_SET
 
 ## TODOs
 
+- (-) сделать проводные plc модемы или zigbee (kq330, KQ-130F, plc, power line communication, https://github.com/santoshkrishnanr/KQ330-power-line-communication-, https://habr.com/ru/articles/759964/, ESP32-C6 and ESP32-H2 have integrated radios for Thread and Zigbee protocols)
+- (-) reboot after updating settings?
+- (-) reboot after invoking enter-setup + implement endpoint to update broker ip
+- (-) exclude file from upload if not changed
+- (-) work with config.json and db.json in uniformly (use same wrapper)
+- (-) collect and publish prometheus metrics
+- (-) introduce json db; collect boot count stats; replace hot_meter and cold_meter files
 - (-) try build own https://github.com/nodemcu/nodemcu-firmware and LFS
 - (-) implement blink codes
 - (-) design a way to enter setup mode, need some access on hardware level (like reset button), or use some timeout after startup

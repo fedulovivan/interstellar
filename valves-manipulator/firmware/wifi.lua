@@ -4,8 +4,8 @@ wifi.ap.config({
     pwd = "welcome-to-hell"
 })
 
-print("access point started")
-print("open in browser http://" .. wifi.ap.getip())
+print("wifi: access point started")
+print("wifi: open in browser http://" .. wifi.ap.getip())
 
 local server = net.createServer(net.TCP)
 
@@ -37,9 +37,9 @@ end
 local function onReceive(socket, request)
     local _, _, method, path = string.find(request, "([A-Z]+) (.+) HTTP")
     local ischunk = method == nil and path == nil
-    print("new request >>>\n" .. request .. "\n<<< end request")
-    print("method=" .. (method ~= nil and method or "<nil>"))
-    print("path=" .. (path ~= nil and path or "<nil>"))
+    print("wifi: new request >>>\n" .. request .. "\n<<< end request")
+    print("wifi: method=" .. (method ~= nil and method or "<nil>"))
+    print("wifi: path=" .. (path ~= nil and path or "<nil>"))
     if method == "GET" and path == "/" then
         socket:send(
             "HTTP/1.0 200 OK\r\nServer: NodeMCU\r\nContent-Type: text/html\r\n\r\n" ..
@@ -61,7 +61,7 @@ local function onReceive(socket, request)
         return
     elseif ischunk then
         local newjson = sjson.encode(parse_urlencoded(request))
-        print("parsed", newjson)
+        print("wifi: parsed", newjson)
         file.putcontents(FILES.CONFIG, newjson)
         file.putcontents(FILES.SETUP_COMPLETED, "")
         socket:send("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n" .. FILES.CONFIG .. " written", socketClose)

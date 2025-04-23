@@ -1,3 +1,8 @@
+DB = require("db")
+DB:Init()
+DB:Inc(DB.Props.BootCount)
+
+print(node.heap())
 
 FILES = {
     CONFIG = "config.json",
@@ -10,17 +15,21 @@ FILES = {
 
 GIT_REV = file.getcontents(FILES.VERSION)
 CHIPID = node.chipid()
-CONFIG = sjson.decode(file.getcontents(FILES.CONFIG))
+if file.exists(FILES.CONFIG) then
+    CONFIG = sjson.decode(file.getcontents(FILES.CONFIG))
+else
+    error("init: " ..  FILES.CONFIG .. " does not exist")
+end
 
-print("valves-manipulator starting...");
-print("GIT_REV=" .. GIT_REV)
-print("CHIPID=" .. CHIPID)
-print("CONFIG=" .. sjson.encode(CONFIG))
+print("init: valves-manipulator starting...");
+print("init: GIT_REV=" .. GIT_REV)
+print("init: CHIPID=" .. CHIPID)
+print("init: CONFIG=" .. sjson.encode(CONFIG))
 
 if file.exists(FILES.SETUP_COMPLETED) then
-    print("setup is completed, running main.lua")
+    print("init: setup is completed, running main")
     dofile("main.lua")
 else
-    print("setup is required, running wifi.lua")
+    print("init: setup is required, running wifi")
     dofile("wifi.lua")
 end

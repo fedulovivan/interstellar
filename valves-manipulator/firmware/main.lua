@@ -19,8 +19,8 @@ local MQTT_CLIENT_ID = string.format("%s-%s", CONFIG.MQTT_TOPIC_BASE, CHIPID)
 local OPEN_CMD = "open"
 local CLOSE_CMD = "close"
 
-local STATUS_UPDATE_INTERVAL = 60000 * 1; -- 1 munite
-local SAVE_METER_STATE_INTERVAL = 60000 * 30; -- 30 minutes
+local STATUS_UPDATE_INTERVAL = 1000 * 60 * 1; -- 1 munite
+local SAVE_METER_STATE_INTERVAL = 1000 * 60 * 30; -- 30 minutes
 
 local VALVE_PIN = 2; -- GPIO4
 local WATER_SENSOR_PIN = 6; -- GPIO12
@@ -53,7 +53,7 @@ local timers = {
 };
 
 local function log(value)
-    print(value)
+    print("main: " .. value)
     if mqttIsConnected then
         mqttClient:publish(TOPIC_LOG, value, 0, 0)
     end
@@ -138,6 +138,7 @@ local function goOnline()
         GIT_REV = GIT_REV,
         CONFIG = CONFIG,
         MQTT_CLIENT_ID = MQTT_CLIENT_ID,
+        BOOT_COUNT = DB:Get(DB.Props.BootCount),
         TOPICS = {
             TOPIC_CMD,
             TOPIC_STATUS,

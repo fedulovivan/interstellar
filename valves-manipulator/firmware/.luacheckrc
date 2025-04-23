@@ -2,7 +2,7 @@ globals = {
     -- build-in modules
     "bit", "file", "gpio", "i2c", "mqtt", "net", "node", "sjson", "tmr", "uart", "wifi", "net", "srv",
     -- variables
-    "GIT_REV", "CONFIG", "CHIPID", "FILES"
+    "GIT_REV", "CONFIG", "CHIPID", "FILES", "DB"
 }
 codes = true
 unused_args = false
